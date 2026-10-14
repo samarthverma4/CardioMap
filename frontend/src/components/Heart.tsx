@@ -143,7 +143,11 @@ function Myocardium({ nodes, tint }: { nodes: Nodes; tint: { vessel: Vessel; col
     <group>
       {surface.map((n) => (
         <mesh key={n} name={n} geometry={nodes[n].geometry}
-          material={tint && n === `myo-${tint.vessel}` ? tinted! : nodes[n].material} />
+          material={tint && n === `myo-${tint.vessel}` ? tinted! : nodes[n].material}
+          // The heart surface blocks pointer events, so arteries behind it can't be hovered or clicked through it.
+          onPointerOver={(e) => e.stopPropagation()}
+          onPointerMove={(e) => e.stopPropagation()}
+          onClick={(e) => e.stopPropagation()} />
       ))}
       {['aorta', 'pulmonary'].filter((n) => nodes[n]).map((n) => (
         <mesh key={n} name={n} geometry={nodes[n].geometry}>

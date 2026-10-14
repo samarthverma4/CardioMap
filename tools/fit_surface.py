@@ -11,10 +11,12 @@ Run:  python tools/fit_surface.py <bp3d_heart.glb> <surface scene.gltf>
 
 Method:
 1. Rigid + uniform-scale ICP of the BodyParts3D surface onto the target surface (best of several starts).
-2. Each artery vertex is moved by the smoothed displacement that takes the nearby BodyParts3D surface onto the
-   target surface, plus a small outward offset, so the arteries ride on the new epicardium.
-3. Target faces are split into territories by nearest artery (ventricular faces only) for the territory tint.
-4. Textures are downsized and the base colour is desaturated so the API's artery colours stay readable.
+2. Non-rigid registration (NRICP, Amberg et al.) deforms the BodyParts3D surface smoothly onto the target;
+   the arteries are carried by the same displacement field.
+3. Seating: each artery is moved along the local surface normal so its centreline rests just above the
+   surface (tube half-embedded), removing floating and buried segments.
+4. Target faces are split into territories by nearest artery (ventricular faces only) for the territory tint.
+5. Textures are downsized and the base colour is desaturated so the API's artery colours stay readable.
 """
 from __future__ import annotations
 
@@ -23,6 +25,7 @@ import json
 import sys
 from pathlib import Path
 
+import fast_simplification
 import numpy as np
 import trimesh
 from PIL import Image, ImageEnhance
@@ -35,7 +38,12 @@ CREDIT = ('"Realistic Human Heart" (https://sketchfab.com/3d-models/realistic-hu
 VESSELS = ["LAD", "LCX", "RCA"]
 TEX_SIZE = 1024
 SATURATION = 0.55
-OUTWARD = 0.006   # target units the arteries are lifted off the surface
+NRICP_FACES = 6000
+NRICP_STEPS = None  # trimesh default schedule (stiffness 0.01 -> 0.002, landmark-free)
+SEAT_K = 30         # neighbours used to estimate a tube's centreline height
+SEAT_ITERS = 3
+SEAT_FRACTION = 0.35  # centreline height above the surface, as a fraction of the tube radius
+TERRITORY_SMOOTHING = 6
 HEIGHT = 3.4      # output height in scene units
 
 
@@ -93,19 +101,41 @@ def main(bp3d_glb: Path, surface_gltf: Path, out: Path = OUT / "heart.glb") -> N
     shell.apply_transform(M)
     arteries = {k: bp[k].copy().apply_transform(M) for k in VESSELS + ["LM"]}
 
-    # displacement field: shell vertex -> closest point on target, smoothed over neighbours
-    closest, _, tri = trimesh.proximity.closest_point(target, shell.vertices)
-    disp = closest - shell.vertices
-    tree = cKDTree(shell.vertices)
-    _, nb = tree.query(shell.vertices, k=24)
-    disp = disp[nb].mean(1)
-    normals = target.face_normals[tri]
-    for k, a in arteries.items():
+    # 1) smooth non-rigid registration of the (decimated) BodyParts3D surface onto the target surface;
+    #    arteries are carried by the resulting displacement field
+    v, f = fast_simplification.simplify(shell.vertices, shell.faces, target_count=NRICP_FACES)
+    src = trimesh.Trimesh(v, f, process=True)
+    deformed = trimesh.registration.nricp_amberg(src, target, steps=NRICP_STEPS, distance_threshold=0.15,
+                                                return_records=False)
+    disp = deformed - src.vertices
+    tree = cKDTree(src.vertices)
+    for a in arteries.values():
         d, i = tree.query(a.vertices, k=8)
         w = 1.0 / (d + 1e-6)
         w /= w.sum(1, keepdims=True)
-        shift = (disp[i] * w[..., None]).sum(1) + (normals[i] * w[..., None]).sum(1) * OUTWARD
-        a.vertices = a.vertices + shift
+        a.vertices = a.vertices + (disp[i] * w[..., None]).sum(1)
+    shell_deformed = shell.copy()
+    d, i = tree.query(shell.vertices, k=8)
+    w = 1.0 / (d + 1e-6)
+    w /= w.sum(1, keepdims=True)
+    shell_deformed.vertices = shell.vertices + (disp[i] * w[..., None]).sum(1)
+
+    # 2) seating: move each artery along the local surface normal so its centreline rests just above the
+    #    surface (tube half-embedded), never floating or buried. Heights are averaged over each vertex's
+    #    neighbourhood (~ the tube cross-section), and the correction is smoothed along the vessel.
+    prox = trimesh.proximity.ProximityQuery(target)
+    for name, a in arteries.items():
+        if name == "LM":   # short stem at the aortic root: too few vertices for a stable estimate
+            continue
+        knn = cKDTree(a.vertices).query(a.vertices, k=SEAT_K)[1]
+        for _ in range(SEAT_ITERS):
+            cp, _, tri = prox.on_surface(a.vertices)
+            n = target.face_normals[tri]
+            h = ((a.vertices - cp) * n).sum(1)            # signed height of each vertex
+            centre = h[knn].mean(1)                       # ~ centreline height
+            radius = 0.5 * (h[knn].max(1) - h[knn].min(1))
+            shift = (SEAT_FRACTION * radius - centre)[knn].mean(1)
+            a.vertices = a.vertices + n[knn].mean(1) * shift[:, None]
 
     # territories on the target surface
     cent = target.triangles_center
@@ -114,7 +144,7 @@ def main(bp3d_glb: Path, surface_gltf: Path, out: Path = OUT / "heart.glb") -> N
     terr = alab[cKDTree(apts).query(cent)[1]]
     # ventricular = nearest BodyParts3D shell face belonged to a myo-<vessel> part (not myo-base)
     lab_src = np.concatenate([np.full(len(bp[k].vertices), j) for j, k in enumerate(("myo-LAD", "myo-LCX", "myo-RCA", "myo-base"))])
-    ventricular = lab_src[cKDTree(shell.vertices).query(cent)[1]] != 3
+    ventricular = lab_src[cKDTree(shell_deformed.vertices).query(cent)[1]] != 3
 
     # material: downsized textures, desaturated base colour
     mat = target.visual.material
@@ -138,8 +168,18 @@ def main(bp3d_glb: Path, surface_gltf: Path, out: Path = OUT / "heart.glb") -> N
 
     scene = trimesh.Scene()
     counts = {}
-    groups = {f"myo-{v}": np.where(ventricular & (terr == i))[0] for i, v in enumerate(VESSELS)}
-    groups["myo-base"] = np.where(~ventricular)[0]
+    # face labels 0..2 = LAD/LCX/RCA territory, 3 = base; smooth with a neighbour-majority filter so the
+    # territory tint has clean edges instead of isolated triangles
+    label = np.where(ventricular, terr, 3)
+    adj = target.face_adjacency
+    for _ in range(TERRITORY_SMOOTHING):
+        votes = np.zeros((len(label), 4))
+        np.add.at(votes, (np.arange(len(label)), label), 1.5)
+        np.add.at(votes, (adj[:, 0], label[adj[:, 1]]), 1)
+        np.add.at(votes, (adj[:, 1], label[adj[:, 0]]), 1)
+        label = votes.argmax(1)
+    groups = {f"myo-{v}": np.where(label == i)[0] for i, v in enumerate(VESSELS)}
+    groups["myo-base"] = np.where(label == 3)[0]
     for name, faces in groups.items():
         sub = target.submesh([faces], append=True)
         sub.visual.material = pbr
@@ -152,7 +192,7 @@ def main(bp3d_glb: Path, surface_gltf: Path, out: Path = OUT / "heart.glb") -> N
     scene.export(out)
     meta = json.loads((OUT / "heart_meta.json").read_text()) if (OUT / "heart_meta.json").exists() else {}
     meta.update({"surface": CREDIT, "arteries": meta.get("source", ""), "faces": counts,
-                 "note": "Coronary arteries from BodyParts3D fitted onto the textured surface by ICP + local projection."})
+                 "note": "Coronary arteries from BodyParts3D fitted onto the textured surface: ICP, non-rigid registration (NRICP), seating on the surface."})
     (OUT / "heart_meta.json").write_text(json.dumps(meta, indent=1, ensure_ascii=False))
     print(json.dumps(counts), "size", round(out.stat().st_size / 1e6, 2), "MB")
 

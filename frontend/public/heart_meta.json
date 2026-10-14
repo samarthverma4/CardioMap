@@ -3,16 +3,16 @@
  "url": "https://dbarchive.biosciencedbc.jp/en/bodyparts3d/",
  "shell_offset_mm": 3.61,
  "faces": {
-  "myo-LAD": 1812,
-  "myo-LCX": 643,
-  "myo-RCA": 5272,
-  "myo-base": 14835,
+  "myo-LAD": 2159,
+  "myo-LCX": 696,
+  "myo-RCA": 5339,
+  "myo-base": 14368,
   "LAD": 9000,
   "LCX": 3018,
   "RCA": 8999,
   "LM": 204
  },
- "note": "Coronary arteries from BodyParts3D fitted onto the textured surface by ICP + local projection.",
+ "note": "Coronary arteries from BodyParts3D fitted onto the textured surface: ICP, non-rigid registration (NRICP), seating on the surface.",
  "surface": "\"Realistic Human Heart\" (https://sketchfab.com/3d-models/realistic-human-heart-3f8072336ce94d18b3d0d055a1ece089) by neshallads (https://sketchfab.com/neshallads), CC BY 4.0",
  "arteries": "BodyParts3D, © The Database Center for Life Science licensed under CC Attribution 4.0 International"
 }
