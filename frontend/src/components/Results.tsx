@@ -36,13 +36,14 @@ function Track({ p, band, cadP, color }: { p: number; band: [number, number]; ca
   )
 }
 
-export function ShapChart({ items, scale }: { items: ShapItem[]; scale: string }) {
+/* animKey: whenever it changes (a vessel is touched or the selection changes) the bars regrow from the axis. */
+export function ShapChart({ items, scale, animKey }: { items: ShapItem[]; scale: string; animKey?: string }) {
   const [tip, setTip] = useState<number | null>(null)
   const max = Math.max(...items.map((s) => Math.abs(s.contribution)), 1e-6)
   const row = 28, labelW = 196, w = 360, half = (w - labelW) / 2
   return (
     <figure className="shap">
-      <svg viewBox={`0 0 ${w} ${items.length * row + 6}`} role="img"
+      <svg key={animKey} viewBox={`0 0 ${w} ${items.length * row + 6}`} role="img"
         aria-label={`Top ${items.length} input contributions on the ${scale} scale`}>
         <line x1={labelW + half} x2={labelW + half} y1={0} y2={items.length * row + 6} className="axis" />
         {items.map((s, i) => {
@@ -56,7 +57,8 @@ export function ShapChart({ items, scale }: { items: ShapItem[]; scale: string }
               <text x={0} y={y + 12} className="shap-label">{s.label}</text>
               <text x={0} y={y + 23} className="shap-value">{s.display_value}</text>
               <rect x={up ? labelW + half + 1 : labelW + half - 1 - len} y={y + 4} width={Math.max(len, 1.5)} height={11}
-                rx={2} className={up ? 'bar-up' : 'bar-down'} />
+                rx={2} className={`${up ? 'bar-up grow-right' : 'bar-down grow-left'}`}
+                style={{ animationDelay: `${i * 55}ms` }} />
               {tip === i && (
                 <text x={up ? labelW + half - 4 : labelW + half + 4} y={y + 13} textAnchor={up ? 'end' : 'start'} className="shap-num">
                   {s.contribution > 0 ? '+' : ''}{scale === 'probability' ? `${(s.contribution * 100).toFixed(1)} pts` : s.contribution.toFixed(2)}
@@ -138,7 +140,7 @@ export default function Results({ prediction: d, selected, onSelect, preset, bus
         <p className="eyebrow">{selected ? `Why the ${selected} score` : 'Why the CAD probability'}</p>
         <p className="sentence">{target.explanation}</p>
         {/* On wide screens the chart is shown over the 3D view instead (App.tsx); here only on phones. */}
-        <div className="shap-inline"><ShapChart items={target.shap} scale={target.shap_scale} /></div>
+        <div className="shap-inline"><ShapChart items={target.shap} scale={target.shap_scale} animKey={selected ?? 'CAD'} /></div>
       </div>
 
       {preset && (

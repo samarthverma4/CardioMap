@@ -186,6 +186,11 @@ summary .count { margin-left: auto; color: var(--ink-3); font: 400 12px var(--f-
 .shap-value { font: 10.5px var(--f-mono); fill: var(--ink-3); }
 .shap-num { font: 10.5px var(--f-mono); fill: var(--ink-2); }
 .bar-up { fill: var(--up); background: var(--up); }
+/* SHAP bars grow out of the zero axis, staggered, whenever the chart is re-keyed */
+.shap .grow-right, .shap .grow-left { transform-box: fill-box; animation: bar-grow 0.65s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+.shap .grow-right { transform-origin: left center; }
+.shap .grow-left { transform-origin: right center; }
+@keyframes bar-grow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
 .bar-down { fill: var(--down); background: var(--down); }
 .shap figcaption { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 11px; color: var(--ink-3); margin-top: 4px; }
 .key i { display: inline-block; width: 10px; height: 8px; border-radius: 2px; margin-right: 4px; }

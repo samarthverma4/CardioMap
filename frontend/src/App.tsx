@@ -43,6 +43,8 @@ export default function App() {
   const [predError, setPredError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [selected, setSelected] = useState<Vessel | null>(null)
+  const [touch, setTouch] = useState(0) // bumps on every vessel touch, so the contribution bars replay
+  const select = (v: Vessel | null) => { setSelected(v); setTouch((t) => t + 1) }
   const [territory, setTerritory] = useState(true)
   const ctrl = useRef<AbortController | null>(null)
 
@@ -109,7 +111,7 @@ export default function App() {
           </aside>
           <section className="col-scene" aria-label="3D heart">
             <Suspense fallback={<div className="scene-loading">Loading 3D view…</div>}>
-              <Heart prediction={pred} selected={selected} onSelect={setSelected} showTerritory={territory} />
+              <Heart prediction={pred} selected={selected} onSelect={select} showTerritory={territory} />
             </Suspense>
             <div className="scene-top">
               <span className="scene-hint">Drag to rotate · scroll to zoom · click an artery</span>
@@ -127,10 +129,11 @@ export default function App() {
                 <ShapChart
                   items={(selected ? pred.vessels[selected] : pred.cad).shap}
                   scale={(selected ? pred.vessels[selected] : pred.cad).shap_scale}
+                  animKey={`${selected ?? 'CAD'}-${touch}`}
                 />
               </figure>
             )}
-            <Bullseye anatomy={s.anatomy} prediction={pred} selected={selected} onSelect={setSelected} />
+            <Bullseye anatomy={s.anatomy} prediction={pred} selected={selected} onSelect={select} />
             <p className="model-credit">
               Heart: <a href="https://sketchfab.com/3d-models/realistic-human-heart-3f8072336ce94d18b3d0d055a1ece089" target="_blank" rel="noreferrer">“Realistic Human Heart” by neshallads</a>, CC BY 4.0.
               {' '}Coronary arteries: <a href="https://dbarchive.biosciencedbc.jp/en/bodyparts3d/" target="_blank" rel="noreferrer">BodyParts3D</a>, © The Database Center for Life Science, CC BY 4.0.
@@ -139,7 +142,7 @@ export default function App() {
           <aside className="col-results">
             {predError && <p className="error-box" role="alert">{predError}</p>}
             {pred && (
-              <Results prediction={pred} selected={selected} onSelect={setSelected} preset={preset} busy={busy} />
+              <Results prediction={pred} selected={selected} onSelect={select} preset={preset} busy={busy} />
             )}
           </aside>
         </main>
