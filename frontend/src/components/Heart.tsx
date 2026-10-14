@@ -228,6 +228,7 @@ export default function Heart({ prediction, selected, onSelect, showTerritory }:
   return (
     <Canvas
       frameloop="demand"
+      style={{ position: 'absolute', inset: 0 }}
       dpr={[1, 1.5]}
       camera={{ position: [0.3, 0.6, 7.6], fov: 36 }}
       onPointerMissed={() => onSelect(null)}

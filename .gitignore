@@ -6,3 +6,4 @@ node_modules/
 frontend/dist/
 artifacts/models.joblib
 .DS_Store
+.claude/

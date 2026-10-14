@@ -1,0 +1,9 @@
+.venv
+.git
+.claude
+**/node_modules
+frontend/dist
+artifacts/models.joblib
+docs
+**/__pycache__
+.pytest_cache

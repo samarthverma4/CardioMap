@@ -72,7 +72,6 @@ code { font-family: var(--f-mono); font-size: 0.92em; }
 .col-form { border-right: 1px solid var(--line); }
 .col-results { border-left: 1px solid var(--line); }
 .col-scene { position: relative; min-height: 520px; background: radial-gradient(ellipse at 50% 42%, var(--scope-2), var(--scope) 70%); }
-.col-scene canvas { position: absolute !important; inset: 0; }
 .scene-loading { color: var(--scope-ink); padding: 24px; }
 
 .eyebrow { margin: 0 0 4px; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); font-weight: 600; }
@@ -235,6 +234,9 @@ td { font-family: var(--f-mono); font-size: 12.5px; }
   .tagline { display: none; }
   .two-col { grid-template-columns: 1fr; }
   table { display: block; overflow-x: auto; }
-  .scene-legend { right: 14px; gap: 12px; }
+  .col-scene { min-height: 470px; }
+  .scene-legend { right: 10px; left: 10px; bottom: 10px; gap: 12px; padding: 6px 9px; font-size: 10.5px; }
+  .lg-ramp { width: 110px; }
+  .scene-hint { display: none; }
 }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
