@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "cardiomap",
+      "runtimeExecutable": "/Users/samarthverma/cardiomap/.venv/bin/uvicorn",
+      "runtimeArgs": ["backend.app.main:app", "--port", "8000", "--app-dir", "/Users/samarthverma/cardiomap"],
+      "port": 8000
+    }
+  ]
+}

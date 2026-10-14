@@ -139,7 +139,8 @@ def predict(features: dict) -> dict:
                              "shap_scale": scale, "explanation": _sentence(v, sh)}
         out["scene_state"][v] = {"color": prob_to_color(p), "evidence": ev["badge"]}
     out["population_note"] = POPULATION_NOTE
-    out["defaults_used"] = sorted(k for k in inputs if k not in features)
+    derived_bmi = "BMI" not in features and "Weight" in features and "Length" in features
+    out["defaults_used"] = sorted(k for k in inputs if k not in features and not (k == "BMI" and derived_bmi))
     out["inputs"] = inputs
     return out
 
