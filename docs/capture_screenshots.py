@@ -47,7 +47,7 @@ def main():
         pg.wait_for_timeout(600)
         pg.screenshot(path=OUT / "02_sample_c_lad_selected.png")
         pg.locator(".vessels").screenshot(path=OUT / "03_vessel_rows.png")
-        pg.locator(".explain").screenshot(path=OUT / "04_shap_lad.png")
+        pg.locator(".shap-overlay").screenshot(path=OUT / "04_shap_lad.png")
 
         pg.select_option("#preset", "lcx_rca")
         settle(pg)

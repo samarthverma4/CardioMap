@@ -36,10 +36,10 @@ function Track({ p, band, cadP, color }: { p: number; band: [number, number]; ca
   )
 }
 
-function ShapChart({ items, scale }: { items: ShapItem[]; scale: string }) {
+export function ShapChart({ items, scale }: { items: ShapItem[]; scale: string }) {
   const [tip, setTip] = useState<number | null>(null)
   const max = Math.max(...items.map((s) => Math.abs(s.contribution)), 1e-6)
-  const row = 26, labelW = 168, w = 360, half = (w - labelW) / 2
+  const row = 28, labelW = 196, w = 360, half = (w - labelW) / 2
   return (
     <figure className="shap">
       <svg viewBox={`0 0 ${w} ${items.length * row + 6}`} role="img"
@@ -54,7 +54,7 @@ function ShapChart({ items, scale }: { items: ShapItem[]; scale: string }) {
               onFocus={() => setTip(i)} onBlur={() => setTip(null)} tabIndex={0}>
               <rect x={0} y={y - 3} width={w} height={row} className="hit" />
               <text x={0} y={y + 12} className="shap-label">{s.label}</text>
-              <text x={0} y={y + 22} className="shap-value">{s.display_value}</text>
+              <text x={0} y={y + 23} className="shap-value">{s.display_value}</text>
               <rect x={up ? labelW + half + 1 : labelW + half - 1 - len} y={y + 4} width={Math.max(len, 1.5)} height={11}
                 rx={2} className={up ? 'bar-up' : 'bar-down'} />
               {tip === i && (
@@ -137,7 +137,8 @@ export default function Results({ prediction: d, selected, onSelect, preset, bus
       <div className="explain">
         <p className="eyebrow">{selected ? `Why the ${selected} score` : 'Why the CAD probability'}</p>
         <p className="sentence">{target.explanation}</p>
-        <ShapChart items={target.shap} scale={target.shap_scale} />
+        {/* On wide screens the chart is shown over the 3D view instead (App.tsx); here only on phones. */}
+        <div className="shap-inline"><ShapChart items={target.shap} scale={target.shap_scale} /></div>
       </div>
 
       {preset && (

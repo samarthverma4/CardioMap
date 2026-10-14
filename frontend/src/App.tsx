@@ -3,7 +3,7 @@ import { api } from './api'
 import Bullseye from './components/Bullseye'
 import ModelCard from './components/ModelCard'
 import PatientForm from './components/PatientForm'
-import Results from './components/Results'
+import Results, { ShapChart } from './components/Results'
 import type { Anatomy, Meta, Metrics, Prediction, Preset, Presets, Schema, Vessel } from './types'
 
 const Heart = lazy(() => import('./components/Heart'))
@@ -119,6 +119,17 @@ export default function App() {
               </label>
             </div>
             <Legend meta={s.meta} />
+            {pred && (
+              <figure className="shap-overlay" aria-label="Input contributions">
+                <figcaption className="overlay-title">
+                  {selected ? `Why the ${selected} score` : 'Why the CAD probability'}
+                </figcaption>
+                <ShapChart
+                  items={(selected ? pred.vessels[selected] : pred.cad).shap}
+                  scale={(selected ? pred.vessels[selected] : pred.cad).shap_scale}
+                />
+              </figure>
+            )}
             <Bullseye anatomy={s.anatomy} prediction={pred} selected={selected} onSelect={setSelected} />
             <p className="model-credit">
               Heart: <a href="https://sketchfab.com/3d-models/realistic-human-heart-3f8072336ce94d18b3d0d055a1ece089" target="_blank" rel="noreferrer">“Realistic Human Heart” by neshallads</a>, CC BY 4.0.

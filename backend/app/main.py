@@ -78,7 +78,7 @@ def _fmt_value(name: str, v: Any) -> str:
         for o in it["options"]:
             if o["value"] == v:
                 return o["label"]
-    s = f"{v:g}" if isinstance(v, (int, float)) else str(v)
+    s = f"{v:.4g}" if isinstance(v, (int, float)) else str(v)
     return f"{s} {it['unit']}".strip()
 
 
