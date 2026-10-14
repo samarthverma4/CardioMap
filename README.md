@@ -67,6 +67,7 @@ backend/app/main.py (FastAPI)          frontend/ (Vite, React, TypeScript, react
 - **Explanations**: SHAP values come from `shap.LinearExplainer` (LR, log-odds, all 303 rows as background) or `shap.TreeExplainer` (RF, probability scale) applied to the **uncalibrated** base model refit on all rows, not to the calibrated wrapper. The top 8 contributions are shown in clinical units; the BBB dummies are summed back into one input.
 - **Colour**: one function, `prob_to_color(p)` in the backend (green to amber to red). The frontend only uses the `scene_state` colours it receives.
 - **Evidence badge** per vessel: mean of LR and RF within-CAD AUC of the dedicated model scores; below 0.60 weak, 0.60–0.70 limited, above 0.70 moderate. In the 3D view, moderate is solid, limited is 70% opacity and weak is 45% opacity with a dashed outline.
+- **3D heart** (`frontend/public/heart.glb`, 1.1 MB, built by `tools/build_heart.py` from BodyParts3D): BodyParts3D models the cavities, atrial walls and the full coronary tree but not the ventricular wall, so the epicardium is reconstructed as an offset shell around the cavities (at the 25th percentile of coronary distance, so the epicardial arteries lie on it). Meshes: `LAD` (with diagonals, conus and septal branches), `LCX`, `RCA` (with conus, marginal, posterior ventricular and posterior interventricular branches; right-dominant), `LM`, and the surface split into `myo-LAD`, `myo-LCX`, `myo-RCA` (nearest artery, ventricles only) and `myo-base`. To rebuild: download `partof_BP3D_4.0_obj_99.zip` and `partof_element_parts.txt`, unzip into one folder, `pip install -r requirements-dev.txt`, then `python tools/build_heart.py <folder>`.
 - **Sample patients** are the first dataset rows matching four fixed case definitions (no CAD; LAD only; three-vessel; LCX/RCA without LAD), excluding row 93. Labels stay hidden until "Reveal". These rows were in the training data, so their predictions are optimistic, and the UI says so.
 
 ## Results
@@ -106,12 +107,12 @@ ECG + echo over the ESC inputs: LR +0.029 (0.013 to 0.048), RF +0.031 (0.011 to 
 - Vessel scores mostly re-encode overall CAD risk and must not be read as lesion location. Vessel labels are stenotic/normal only.
 - Row 93 (0-based) has a stenotic vessel but is labelled no CAD; it is kept as published.
 - The served models are refit on all rows; the reported metrics are cross-validated estimates of the same model families, not of the exact served objects.
-- The heart and territories are generic and assume right-dominant circulation.
+- The heart is one anatomical model (BodyParts3D), not this patient's anatomy; territories assume right-dominant circulation.
 
 ## Licences and data
 
 - Dataset: Alizadehsani R., Roshanzamir M., Sani Z. *Extension of Z-Alizadeh Sani dataset*. UCI Machine Learning Repository, DOI 10.24432/C5461K. CC BY 4.0. SHA-256 of the file used: `739343245c2ba578b541370217531750d8e936022f928b83e0d91756caa3ff0b` (checked at load).
-- The 3D heart is procedural (no external mesh; BodyParts3D not used).
+- 3D heart: **BodyParts3D, © The Database Center for Life Science licensed under CC Attribution 4.0 International** (https://dbarchive.biosciencedbc.jp/en/bodyparts3d/). The coronary arteries are the original meshes; the epicardial surface was reconstructed from the cavity and atrial-wall meshes and all meshes were decimated (`tools/build_heart.py`). The credit is shown on the 3D view.
 - Fonts bundled from npm, no runtime CDN: Bricolage Grotesque, Public Sans, IBM Plex Mono (SIL Open Font License 1.1).
 - Libraries: scikit-learn, pandas, NumPy, SHAP, FastAPI, React, three.js, react-three-fiber, drei, Vite (each under its own open-source licence).
 
@@ -120,7 +121,7 @@ ECG + echo over the ESC inputs: LR +0.029 (0.013 to 0.048), RF +0.031 (0.011 to 
 Tools: **Claude Code** (Anthropic, Claude Opus 5.5) and **Claude** (Anthropic).
 
 - `ml/reproduce.py`, `ml/metrics.json`, `ml/oof_predictions.csv` and the analysis design were produced with Claude.
-- With Claude Code: `ml/features.py`, `ml/train.py`, the artifacts, the FastAPI backend, the React/three.js frontend (including the procedural heart and charts), all tests, the Dockerfile, the screenshot script and this README.
+- With Claude Code: `ml/features.py`, `ml/train.py`, the artifacts, the FastAPI backend, the React/three.js frontend (including the charts and the BodyParts3D heart pipeline), all tests, the Dockerfile, the screenshot script and this README.
 - The team chose the research question, reviewed the outputs and is responsible for every claim in the submission.
 
 ## Repository
@@ -130,7 +131,8 @@ data/          dataset (hash-checked)
 ml/            features.py, train.py, reproduce.py (+ its metrics and OOF predictions)
 artifacts/     schema, metrics, presets, anatomy map (models.joblib is rebuilt by train.py)
 backend/app/   FastAPI app
-frontend/      Vite + React + TypeScript + react-three-fiber
+frontend/      Vite + React + TypeScript + react-three-fiber (public/heart.glb)
+tools/         build_heart.py: BodyParts3D -> heart.glb
 tests/         leakage, API and rendered-colour tests
 docs/          6-page write-up (md + pdf), screenshot script, figures
 ```

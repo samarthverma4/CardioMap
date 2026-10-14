@@ -118,6 +118,9 @@ export default function App() {
               </label>
             </div>
             <Legend meta={s.meta} />
+            <a className="model-credit" href="https://dbarchive.biosciencedbc.jp/en/bodyparts3d/" target="_blank" rel="noreferrer">
+              Heart model: BodyParts3D, © The Database Center for Life Science, CC BY 4.0
+            </a>
           </section>
           <aside className="col-results">
             {predError && <p className="error-box" role="alert">{predError}</p>}
