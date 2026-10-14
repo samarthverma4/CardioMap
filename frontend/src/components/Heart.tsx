@@ -1,7 +1,7 @@
 import { OrbitControls, useGLTF } from '@react-three/drei'
-import { Canvas, useThree } from '@react-three/fiber'
+import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import type { ThreeEvent } from '@react-three/fiber'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
 import type { Evidence, Prediction, Vessel } from '../types'
 import { VESSELS } from '../types'
@@ -84,18 +84,93 @@ function labelAnchor(geo: THREE.BufferGeometry, vessel: Vessel) {
   return best.add(dir.multiplyScalar(0.2))
 }
 
+/* Contrast-fill animation: each artery vertex gets aDist = distance from the vessel's ostium (0) to its
+   farthest branch (1). A uniform uFill sweeps 0 -> 1: behind it the vessel shows its colour, ahead of it the
+   vessel is dark and empty, and a bright front marks the dye. Material colour itself never changes. */
+const FILL_MS = 1200
+const FILL_END = 1.08
+const reducedMotion = () => typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+
+function withFillDistance(geo: THREE.BufferGeometry, ostium: THREE.Vector3) {
+  if (geo.getAttribute('aDist')) return geo
+  const pos = geo.attributes.position as THREE.BufferAttribute
+  const d = new Float32Array(pos.count)
+  const v = new THREE.Vector3()
+  let max = 1e-6
+  for (let i = 0; i < pos.count; i++) {
+    d[i] = v.fromBufferAttribute(pos, i).distanceTo(ostium)
+    max = Math.max(max, d[i])
+  }
+  for (let i = 0; i < d.length; i++) d[i] /= max
+  geo.setAttribute('aDist', new THREE.BufferAttribute(d, 1))
+  return geo
+}
+
+/* Ostium: LAD and LCX start where they meet the left main; the RCA starts at its highest point (aortic root). */
+function ostiumOf(vessel: Vessel, geo: THREE.BufferGeometry, lm: THREE.BufferGeometry) {
+  const pos = geo.attributes.position as THREE.BufferAttribute
+  const v = new THREE.Vector3(), best = new THREE.Vector3()
+  if (vessel === 'RCA') {
+    let top = -Infinity
+    for (let i = 0; i < pos.count; i++) { v.fromBufferAttribute(pos, i); if (v.y > top) { top = v.y; best.copy(v) } }
+    return best
+  }
+  lm.computeBoundingBox()
+  const c = lm.boundingBox!.getCenter(new THREE.Vector3())
+  let near = Infinity
+  for (let i = 0; i < pos.count; i++) { v.fromBufferAttribute(pos, i); const dd = v.distanceTo(c); if (dd < near) { near = dd; best.copy(v) } }
+  return best
+}
+
+function fillShader(uniforms: { uFill: { value: number } }) {
+  return (shader: { uniforms: Record<string, unknown>; vertexShader: string; fragmentShader: string }) => {
+    shader.uniforms.uFill = uniforms.uFill
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', '#include <common>\nattribute float aDist;\nvarying float vDist;')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvDist = aDist;')
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <common>', '#include <common>\nuniform float uFill;\nvarying float vDist;')
+      .replace('#include <color_fragment>', `#include <color_fragment>
+        float filled = step(vDist, uFill);
+        diffuseColor.rgb = mix(vec3(0.16, 0.12, 0.12), diffuseColor.rgb, filled);`)
+      .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
+        totalEmissiveRadiance *= filled;
+        float front = smoothstep(0.07, 0.0, abs(vDist - uFill)) * step(uFill, 1.0);
+        totalEmissiveRadiance += vec3(1.0, 0.94, 0.82) * front * 1.6;`)
+  }
+}
+
 interface ArteryProps {
   vessel: Vessel
   geometry: THREE.BufferGeometry
   color: string
   evidence: Evidence
   selected: boolean
+  fillTrigger: number
+  onTouch: (v: Vessel) => void
   onHover: (v: Vessel | null, e?: ThreeEvent<PointerEvent>) => void
   onSelect: (v: Vessel) => void
 }
 
-function Artery({ vessel, geometry, color, evidence, selected, onHover, onSelect }: ArteryProps) {
+function Artery({ vessel, geometry, color, evidence, selected, fillTrigger, onTouch, onHover, onSelect }: ArteryProps) {
   const opacity = OPACITY[evidence]
+  const uniforms = useMemo(() => ({ uFill: { value: FILL_END } }), [])
+  const onBeforeCompile = useMemo(() => fillShader(uniforms), [uniforms])
+  const start = useRef<number | null>(null)
+  const invalidate = useThree((st) => st.invalidate)
+  useEffect(() => {
+    if (fillTrigger === 0 || reducedMotion()) return
+    start.current = performance.now()
+    uniforms.uFill.value = 0
+    invalidate()
+  }, [fillTrigger, uniforms, invalidate])
+  useFrame(() => {
+    if (start.current === null) return
+    const t = Math.min((performance.now() - start.current) / FILL_MS, 1)
+    uniforms.uFill.value = (1 - Math.pow(1 - t, 2)) * FILL_END   // ease-out, like dye slowing distally
+    if (t >= 1) start.current = null
+    invalidate()
+  })
   const outline = useMemo(() => (evidence === 'weak' ? dashedOutline(color) : null), [evidence, color])
   useEffect(() => () => outline?.dispose(), [outline])
   const anchor = useMemo(() => labelAnchor(geometry, vessel), [geometry, vessel])
@@ -108,9 +183,12 @@ function Artery({ vessel, geometry, color, evidence, selected, onHover, onSelect
         onPointerOver={(e) => { e.stopPropagation(); onHover(vessel, e) }}
         onPointerMove={(e) => { e.stopPropagation(); onHover(vessel, e) }}
         onPointerOut={() => onHover(null)}
+        onPointerDown={(e) => { e.stopPropagation(); onTouch(vessel) }}
         onClick={(e) => { e.stopPropagation(); onSelect(vessel) }}
       >
         <meshStandardMaterial
+          onBeforeCompile={onBeforeCompile}
+          customProgramCacheKey={() => 'artery-fill'}
           color={color}
           emissive={color}
           emissiveIntensity={selected ? 0.55 : 0.35}
@@ -198,6 +276,14 @@ interface SceneProps {
 function HeartModel({ prediction, selected, onSelect, tint, onHover }: SceneProps) {
   const { nodes } = useGLTF(MODEL_URL, false, false) as unknown as { nodes: Nodes }
   const state = prediction?.scene_state
+  const geos = useMemo(
+    () => Object.fromEntries(VESSELS.map((v) => [v, withFillDistance(nodes[v].geometry, ostiumOf(v, nodes[v].geometry, nodes.LM.geometry))])) as Record<Vessel, THREE.BufferGeometry>,
+    [nodes],
+  )
+  // Re-run the fill whenever a vessel is touched in the scene or selected anywhere (list, bullseye).
+  const [fills, setFills] = useState<Record<Vessel, number>>({ LAD: 0, LCX: 0, RCA: 0 })
+  const fill = (v: Vessel) => setFills((f) => ({ ...f, [v]: f[v] + 1 }))
+  useEffect(() => { if (selected) fill(selected) }, [selected])
   return (
     <group rotation={[0.05, -0.2, 0]} position={[0, -0.1, 0]}>
       <Myocardium nodes={nodes} tint={tint} />
@@ -206,10 +292,12 @@ function HeartModel({ prediction, selected, onSelect, tint, onHover }: SceneProp
           <Artery
             key={v}
             vessel={v}
-            geometry={nodes[v].geometry}
+            geometry={geos[v]}
             color={state[v].color}
             evidence={state[v].evidence}
             selected={selected === v}
+            fillTrigger={fills[v]}
+            onTouch={fill}
             onHover={onHover}
             onSelect={onSelect}
           />
