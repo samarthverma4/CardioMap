@@ -65,7 +65,7 @@
   },
   {
    "name": "Sex",
-   "label": "Sex (1 = male, 0 = female)",
+   "label": "Sex",
    "unit": "",
    "type": "binary",
    "group": "demographic",

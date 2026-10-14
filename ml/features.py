@@ -32,7 +32,7 @@ BBB_LEVELS = ["N", "LBBB", "RBBB"]
 # name -> (display label, unit, type, group). Type: binary | ordinal | continuous | categorical.
 INPUTS: dict[str, tuple[str, str, str, str]] = {
     "Age": ("Age", "years", "continuous", "demographic"),
-    "Sex": ("Sex (1 = male, 0 = female)", "", "binary", "demographic"),
+    "Sex": ("Sex", "", "binary", "demographic"),
     "Weight": ("Weight", "kg", "continuous", "demographic"),
     "Length": ("Height", "cm", "continuous", "demographic"),
     "BMI": ("Body-mass index", "kg/m²", "continuous", "demographic"),
