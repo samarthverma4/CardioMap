@@ -39,7 +39,9 @@ Frontend development with hot reload: run the backend as above, then `cd fronten
 
 - `tests/test_leakage.py`: no label column (`LAD`, `LCX`, `RCA`, `Cath`) in any model's features, including fold and baseline models; encoding identical to `ml/reproduce.py`; the API returns 400 for any label field.
 - `tests/test_api.py`: response contract, colour function, input validation, BMI derivation.
-- `tests/test_scene_color.py`: opens the built app in headless Chromium (Playwright), loads each sample patient and checks that the colour rendered on each artery mesh equals the API's `scene_state` colour. Uses Playwright's Chromium if installed, otherwise a local Chrome, Brave or Chromium (or `$CARDIOMAP_BROWSER`).
+- `tests/test_scene_color.py` (needs `pip install -r requirements-dev.txt`): opens the built app in headless Chromium (Playwright), loads each sample patient and checks that the colour rendered on each artery mesh equals the API's `scene_state` colour. Uses Playwright's Chromium if installed, otherwise a local Chrome, Brave or Chromium (or `$CARDIOMAP_BROWSER`).
+
+Write-up: `docs/writeup.md` (source) and `docs/writeup.pdf` (6 pages, rebuilt with `python docs/build_writeup.py`). Screenshots: `python docs/capture_screenshots.py` with the backend running.
 
 The full evaluation is `ml/reproduce.py` (about 20 min on one core). Its outputs are `ml/metrics.json` and `ml/oof_predictions.csv`; see `ml/README_reproduce.md`.
 
@@ -130,5 +132,5 @@ artifacts/     schema, metrics, presets, anatomy map (models.joblib is rebuilt b
 backend/app/   FastAPI app
 frontend/      Vite + React + TypeScript + react-three-fiber
 tests/         leakage, API and rendered-colour tests
-docs/          screenshot script and figures for the write-up
+docs/          6-page write-up (md + pdf), screenshot script, figures
 ```
