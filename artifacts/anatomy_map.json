@@ -1,0 +1,46 @@
+{
+ "dominance_assumption": "assumes right-dominant circulation",
+ "note": "Generic textbook territories. The 3D heart is a generic model, not this patient's anatomy.",
+ "aha_17_segments": {
+  "LAD": [
+   1,
+   2,
+   7,
+   8,
+   13,
+   14,
+   17
+  ],
+  "RCA": [
+   3,
+   4,
+   9,
+   10,
+   15
+  ],
+  "LCX": [
+   5,
+   6,
+   11,
+   12,
+   16
+  ]
+ },
+ "vessels": {
+  "LAD": {
+   "name": "Left anterior descending artery",
+   "course": "Anterior interventricular groove to the apex",
+   "territory": "Anterior wall, anterior septum, apex"
+  },
+  "LCX": {
+   "name": "Left circumflex artery",
+   "course": "Left atrioventricular groove towards the back",
+   "territory": "Lateral and posterolateral wall"
+  },
+  "RCA": {
+   "name": "Right coronary artery",
+   "course": "Right atrioventricular groove to the inferior wall",
+   "territory": "Inferior wall, inferior septum"
+  }
+ }
+}
