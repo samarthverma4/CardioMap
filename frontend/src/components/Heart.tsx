@@ -7,13 +7,11 @@ import type { Evidence, Prediction, Vessel } from '../types'
 import { VESSELS } from '../types'
 import { pct } from '../api'
 
-/* Anatomical heart from BodyParts3D (DBCLS, CC BY 4.0), built by tools/build_heart.py.
-   The coronary arteries are the original BodyParts3D meshes; the epicardial surface is reconstructed
-   and split into each artery's territory (myo-LAD, myo-LCX, myo-RCA), plus myo-base for the atria. */
+/* Heart: textured surface "Realistic Human Heart" by neshallads (CC BY 4.0) with the BodyParts3D coronary
+   arteries (DBCLS, CC BY 4.0) fitted onto it; built by tools/build_heart.py + tools/fit_surface.py.
+   The surface is split into each artery's territory (myo-LAD, myo-LCX, myo-RCA) plus myo-base. */
 const MODEL_URL = '/heart.glb'
 const OPACITY: Record<Evidence, number> = { moderate: 1, limited: 0.7, weak: 0.45 }
-const MYO = '#9a7a73'       // muted myocardium, desaturated so artery colours carry the signal
-const ATRIA = '#8a6c66'
 const VESSEL = '#86939c'
 
 type Nodes = Record<string, THREE.Mesh>
@@ -83,7 +81,7 @@ function labelAnchor(geo: THREE.BufferGeometry, vessel: Vessel) {
     const d = v.dot(dir)
     if (d > bestDot) { bestDot = d; best.copy(v) }
   }
-  return best.add(dir.multiplyScalar(0.35))
+  return best.add(dir.multiplyScalar(0.2))
 }
 
 interface ArteryProps {
@@ -129,24 +127,31 @@ function Artery({ vessel, geometry, color, evidence, selected, onHover, onSelect
 }
 
 function Myocardium({ nodes, tint }: { nodes: Nodes; tint: { vessel: Vessel; color: string } | null }) {
-  const tinted = (v: Vessel) => (tint?.vessel === v ? new THREE.Color(MYO).lerp(new THREE.Color(tint.color), 0.5) : new THREE.Color(MYO))
+  // Surface meshes carry their own (textured) material from the GLB; the selected territory is tinted by
+  // multiplying the texture with the vessel colour.
+  const tinted = useMemo(() => {
+    if (!tint) return null
+    const m = (nodes[`myo-${tint.vessel}`].material as THREE.MeshStandardMaterial).clone()
+    m.color = new THREE.Color('#ffffff').lerp(new THREE.Color(tint.color), 0.45)
+    m.emissive = new THREE.Color(tint.color)
+    m.emissiveIntensity = 0.06
+    return m
+  }, [nodes, tint])
+  useEffect(() => () => tinted?.dispose(), [tinted])
+  const surface = ['myo-LAD', 'myo-LCX', 'myo-RCA', 'myo-base']
   return (
     <group>
-      {VESSELS.map((v) => (
-        <mesh key={v} name={`myo-${v}`} geometry={nodes[`myo-${v}`].geometry}>
-          <meshStandardMaterial color={tinted(v)} roughness={0.7} metalness={0.02} />
-        </mesh>
+      {surface.map((n) => (
+        <mesh key={n} name={n} geometry={nodes[n].geometry}
+          material={tint && n === `myo-${tint.vessel}` ? tinted! : nodes[n].material} />
       ))}
-      <mesh name="myo-base" geometry={nodes['myo-base'].geometry}>
-        <meshStandardMaterial color={ATRIA} roughness={0.75} />
-      </mesh>
-      {['aorta', 'pulmonary'].map((n) => (
+      {['aorta', 'pulmonary'].filter((n) => nodes[n]).map((n) => (
         <mesh key={n} name={n} geometry={nodes[n].geometry}>
           <meshStandardMaterial color={VESSEL} roughness={0.6} />
         </mesh>
       ))}
       <mesh name="LM" geometry={nodes.LM.geometry}>
-        <meshStandardMaterial color="#c4ccd2" roughness={0.5} />
+        <meshStandardMaterial color="#9aa4ab" roughness={0.5} />
       </mesh>
     </group>
   )
@@ -157,7 +162,7 @@ function CameraFit() {
   const { camera, size, invalidate } = useThree()
   useEffect(() => {
     const portrait = size.width / size.height < 0.9
-    camera.position.setLength(portrait ? 10.8 : 8.2)
+    camera.position.setLength(portrait ? 9.6 : 7.0)
     camera.updateProjectionMatrix()
     invalidate()
   }, [camera, size.width, size.height, invalidate])
@@ -194,7 +199,7 @@ function HeartModel({ prediction, selected, onSelect, tint, onHover }: SceneProp
   const { nodes } = useGLTF(MODEL_URL, false, false) as unknown as { nodes: Nodes }
   const state = prediction?.scene_state
   return (
-    <group rotation={[0.08, -0.55, 0]} position={[0, -0.35, 0]}>
+    <group rotation={[0.05, -0.2, 0]} position={[0, -0.1, 0]}>
       <Myocardium nodes={nodes} tint={tint} />
       {state &&
         VESSELS.map((v) => (

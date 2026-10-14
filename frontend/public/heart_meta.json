@@ -3,16 +3,16 @@
  "url": "https://dbarchive.biosciencedbc.jp/en/bodyparts3d/",
  "shell_offset_mm": 3.61,
  "faces": {
-  "myo-LAD": 8155,
-  "myo-LCX": 2492,
-  "myo-RCA": 10006,
-  "myo-base": 15347,
+  "myo-LAD": 1812,
+  "myo-LCX": 643,
+  "myo-RCA": 5272,
+  "myo-base": 14835,
   "LAD": 9000,
   "LCX": 3018,
   "RCA": 8999,
-  "LM": 204,
-  "aorta": 1066,
-  "pulmonary": 1302
+  "LM": 204
  },
- "note": "Epicardial surface reconstructed as an offset shell; coronary arteries are original BodyParts3D meshes."
+ "note": "Coronary arteries from BodyParts3D fitted onto the textured surface by ICP + local projection.",
+ "surface": "\"Realistic Human Heart\" (https://sketchfab.com/3d-models/realistic-human-heart-3f8072336ce94d18b3d0d055a1ece089) by neshallads (https://sketchfab.com/neshallads), CC BY 4.0",
+ "arteries": "BodyParts3D, © The Database Center for Life Science licensed under CC Attribution 4.0 International"
 }

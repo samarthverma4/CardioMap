@@ -100,7 +100,7 @@ Out-of-fold calibration slopes of the CAD model are above 1 (logistic regression
 
 **Layout.** Patient form on the left, a 3D heart in the centre, results on the right; a model card in a second tab. The form is generated from `feature_schema.json`, grouped by modality, with the 12 ESC inputs marked. Missing values default to the dataset median or mode, and the results panel says how many inputs are at defaults.
 
-**The 3D heart** comes from BodyParts3D (DBCLS, CC BY 4.0). Its coronary arteries are the original anatomical meshes: the LAD with its diagonal, conus and septal branches, the circumflex, and the RCA with its marginal and posterior interventricular branches (right-dominant). BodyParts3D has no ventricular wall, so the epicardial surface is reconstructed as an offset shell around the cavity and atrial-wall meshes, placed so the epicardial arteries lie on it, and split into each artery's territory by nearest vessel. The whole model is 1.1 MB, renders on demand only and runs on a laptop without a dedicated GPU.
+**The 3D heart** combines two CC BY 4.0 sources. The surface is a textured anatomical heart ("Realistic Human Heart" by neshallads). The coronary arteries are the real anatomical meshes from BodyParts3D (DBCLS): the LAD with its diagonal, conus and septal branches, the circumflex, and the RCA with its marginal and posterior interventricular branches (right-dominant). A build script aligns the BodyParts3D heart to the textured surface, moves each artery onto it, and splits the surface into each artery's territory by nearest vessel. The texture is desaturated so the artery colours stay readable. The model is 3.2 MB, renders on demand only and runs on a laptop without a dedicated GPU.
 
 **Two visual channels, never mixed.** Colour (green to amber to red) is the vessel score, computed by a single backend function; the frontend only paints the colours it receives. Opacity is evidence: moderate solid, limited at 70%, weak at 45% with a dashed outline. With current data no vessel is solid, which is the point.
 
@@ -130,7 +130,7 @@ Out-of-fold calibration slopes of the CAD model are above 1 (logistic regression
 - The served models are refit on all rows; the reported metrics describe the same model families under cross-validation, not the exact served objects.
 - Vessel labels are binary and coarse. Within-CAD AUCs of 0.52 to 0.67 mean the vessel scores must not be used to plan or replace angiography.
 - SHAP values describe the uncalibrated base model and are associations, not causes.
-- The heart is one anatomical model, not this patient's anatomy; its surface is reconstructed and its territories assume right-dominant circulation.
+- The heart is one generic model, not this patient's anatomy; the arteries are fitted to it automatically and the territories assume right-dominant circulation.
 
 The intended use is education and discussion: showing clinicians and students what bedside data can and cannot say about coronary anatomy.
 
@@ -144,7 +144,8 @@ Everything runs from the repository: `ml/reproduce.py` regenerates the evaluatio
 
 1. Alizadehsani R, Roshanzamir M, Sani Z. Extension of Z-Alizadeh Sani dataset. UCI Machine Learning Repository. DOI 10.24432/C5461K.
 2. Knuuti J, et al. 2019 ESC Guidelines for the diagnosis and management of chronic coronary syndromes. *European Heart Journal* 2020;41:407–477.
-3. Mitsuhashi N, et al. BodyParts3D: 3D structure database for anatomical concepts. *Nucleic Acids Research* 2009;37:D782–D785. Data: BodyParts3D, © The Database Center for Life Science, CC BY 4.0.
-4. Cerqueira MD, et al. Standardized myocardial segmentation and nomenclature for tomographic imaging of the heart (AHA 17-segment model). *Circulation* 2002;105:539–542.
-5. Lundberg SM, Lee S-I. A unified approach to interpreting model predictions. *NeurIPS* 2017.
-6. Platt J. Probabilistic outputs for support vector machines and comparisons to regularized likelihood methods. *Advances in Large Margin Classifiers*, 1999.
+3. neshallads. Realistic Human Heart. Sketchfab, https://sketchfab.com/3d-models/realistic-human-heart-3f8072336ce94d18b3d0d055a1ece089. CC BY 4.0.
+4. Mitsuhashi N, et al. BodyParts3D: 3D structure database for anatomical concepts. *Nucleic Acids Research* 2009;37:D782–D785. Data: BodyParts3D, © The Database Center for Life Science, CC BY 4.0.
+5. Cerqueira MD, et al. Standardized myocardial segmentation and nomenclature for tomographic imaging of the heart (AHA 17-segment model). *Circulation* 2002;105:539–542.
+6. Lundberg SM, Lee S-I. A unified approach to interpreting model predictions. *NeurIPS* 2017.
+7. Platt J. Probabilistic outputs for support vector machines and comparisons to regularized likelihood methods. *Advances in Large Margin Classifiers*, 1999.

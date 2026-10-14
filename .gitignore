@@ -7,3 +7,4 @@ frontend/dist/
 artifacts/models.joblib
 .DS_Store
 .claude/
+incoming/

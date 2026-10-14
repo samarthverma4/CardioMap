@@ -118,9 +118,10 @@ export default function App() {
               </label>
             </div>
             <Legend meta={s.meta} />
-            <a className="model-credit" href="https://dbarchive.biosciencedbc.jp/en/bodyparts3d/" target="_blank" rel="noreferrer">
-              Heart model: BodyParts3D, © The Database Center for Life Science, CC BY 4.0
-            </a>
+            <p className="model-credit">
+              Heart: <a href="https://sketchfab.com/3d-models/realistic-human-heart-3f8072336ce94d18b3d0d055a1ece089" target="_blank" rel="noreferrer">“Realistic Human Heart” by neshallads</a>, CC BY 4.0.
+              {' '}Coronary arteries: <a href="https://dbarchive.biosciencedbc.jp/en/bodyparts3d/" target="_blank" rel="noreferrer">BodyParts3D</a>, © The Database Center for Life Science, CC BY 4.0.
+            </p>
           </section>
           <aside className="col-results">
             {predError && <p className="error-box" role="alert">{predError}</p>}

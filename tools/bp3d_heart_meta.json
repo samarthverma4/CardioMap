@@ -1,0 +1,18 @@
+{
+ "source": "BodyParts3D, © The Database Center for Life Science licensed under CC Attribution 4.0 International",
+ "url": "https://dbarchive.biosciencedbc.jp/en/bodyparts3d/",
+ "shell_offset_mm": 3.61,
+ "faces": {
+  "myo-LAD": 8155,
+  "myo-LCX": 2492,
+  "myo-RCA": 10006,
+  "myo-base": 15347,
+  "LAD": 9000,
+  "LCX": 3018,
+  "RCA": 8999,
+  "LM": 204,
+  "aorta": 1066,
+  "pulmonary": 1302
+ },
+ "note": "Epicardial surface reconstructed as an offset shell; coronary arteries are original BodyParts3D meshes."
+}

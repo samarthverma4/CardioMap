@@ -67,7 +67,10 @@ backend/app/main.py (FastAPI)          frontend/ (Vite, React, TypeScript, react
 - **Explanations**: SHAP values come from `shap.LinearExplainer` (LR, log-odds, all 303 rows as background) or `shap.TreeExplainer` (RF, probability scale) applied to the **uncalibrated** base model refit on all rows, not to the calibrated wrapper. The top 8 contributions are shown in clinical units; the BBB dummies are summed back into one input.
 - **Colour**: one function, `prob_to_color(p)` in the backend (green to amber to red). The frontend only uses the `scene_state` colours it receives.
 - **Evidence badge** per vessel: mean of LR and RF within-CAD AUC of the dedicated model scores; below 0.60 weak, 0.60–0.70 limited, above 0.70 moderate. In the 3D view, moderate is solid, limited is 70% opacity and weak is 45% opacity with a dashed outline.
-- **3D heart** (`frontend/public/heart.glb`, 1.1 MB, built by `tools/build_heart.py` from BodyParts3D): BodyParts3D models the cavities, atrial walls and the full coronary tree but not the ventricular wall, so the epicardium is reconstructed as an offset shell around the cavities (at the 25th percentile of coronary distance, so the epicardial arteries lie on it). Meshes: `LAD` (with diagonals, conus and septal branches), `LCX`, `RCA` (with conus, marginal, posterior ventricular and posterior interventricular branches; right-dominant), `LM`, and the surface split into `myo-LAD`, `myo-LCX`, `myo-RCA` (nearest artery, ventricles only) and `myo-base`. To rebuild: download `partof_BP3D_4.0_obj_99.zip` and `partof_element_parts.txt`, unzip into one folder, `pip install -r requirements-dev.txt`, then `python tools/build_heart.py <folder>`.
+- **3D heart** (`frontend/public/heart.glb`, 3.2 MB): the textured surface of "Realistic Human Heart" by neshallads (CC BY 4.0) with the real coronary arteries from BodyParts3D (CC BY 4.0) fitted onto it. Built in two steps:
+  1. `tools/build_heart.py <bp3d folder>` builds an anatomical heart from BodyParts3D (`tools/bp3d_heart.glb`, committed): the original coronary meshes, `LAD` (with diagonals, conus and septal branches), `LCX`, `RCA` (with conus, marginal, posterior ventricular and posterior interventricular branches; right-dominant) and `LM`, plus an epicardial shell reconstructed around the cavity meshes. Inputs: `partof_BP3D_4.0_obj_99.zip` and `partof_element_parts.txt` from the BodyParts3D download page, unzipped into one folder.
+  2. `tools/fit_surface.py tools/bp3d_heart.glb <scene.gltf>` aligns that heart to the textured model (rigid + scale ICP), moves each artery onto the new surface by the local surface displacement, splits the surface into `myo-LAD`, `myo-LCX`, `myo-RCA` (nearest artery, ventricles only) and `myo-base`, and desaturates the texture so the API's artery colours stay readable. Input: the glTF download of the Sketchfab model.
+  Both need `pip install -r requirements-dev.txt`. The painted vessels in the texture are decoration; the coloured, clickable arteries are the BodyParts3D meshes.
 - **Sample patients** are the first dataset rows matching four fixed case definitions (no CAD; LAD only; three-vessel; LCX/RCA without LAD), excluding row 93. Labels stay hidden until "Reveal". These rows were in the training data, so their predictions are optimistic, and the UI says so.
 
 ## Results
@@ -107,12 +110,14 @@ ECG + echo over the ESC inputs: LR +0.029 (0.013 to 0.048), RF +0.031 (0.011 to 
 - Vessel scores mostly re-encode overall CAD risk and must not be read as lesion location. Vessel labels are stenotic/normal only.
 - Row 93 (0-based) has a stenotic vessel but is labelled no CAD; it is kept as published.
 - The served models are refit on all rows; the reported metrics are cross-validated estimates of the same model families, not of the exact served objects.
-- The heart is one anatomical model (BodyParts3D), not this patient's anatomy; territories assume right-dominant circulation.
+- The heart is one generic model, not this patient's anatomy; the arteries are fitted to it automatically and territories assume right-dominant circulation.
 
 ## Licences and data
 
 - Dataset: Alizadehsani R., Roshanzamir M., Sani Z. *Extension of Z-Alizadeh Sani dataset*. UCI Machine Learning Repository, DOI 10.24432/C5461K. CC BY 4.0. SHA-256 of the file used: `739343245c2ba578b541370217531750d8e936022f928b83e0d91756caa3ff0b` (checked at load).
-- 3D heart: **BodyParts3D, © The Database Center for Life Science licensed under CC Attribution 4.0 International** (https://dbarchive.biosciencedbc.jp/en/bodyparts3d/). The coronary arteries are the original meshes; the epicardial surface was reconstructed from the cavity and atrial-wall meshes and all meshes were decimated (`tools/build_heart.py`). The credit is shown on the 3D view.
+- 3D heart surface: this work is based on "Realistic Human Heart" (https://sketchfab.com/3d-models/realistic-human-heart-3f8072336ce94d18b3d0d055a1ece089) by neshallads (https://sketchfab.com/neshallads), licensed under CC BY 4.0 (http://creativecommons.org/licenses/by/4.0/). Changes: textures downsized and desaturated, mesh split into territory regions.
+- Coronary arteries: **BodyParts3D, © The Database Center for Life Science licensed under CC Attribution 4.0 International** (https://dbarchive.biosciencedbc.jp/en/bodyparts3d/). Changes: decimated, aligned and projected onto the surface above.
+- Both credits are shown on the 3D view.
 - Fonts bundled from npm, no runtime CDN: Bricolage Grotesque, Public Sans, IBM Plex Mono (SIL Open Font License 1.1).
 - Libraries: scikit-learn, pandas, NumPy, SHAP, FastAPI, React, three.js, react-three-fiber, drei, Vite (each under its own open-source licence).
 
@@ -132,7 +137,7 @@ ml/            features.py, train.py, reproduce.py (+ its metrics and OOF predic
 artifacts/     schema, metrics, presets, anatomy map (models.joblib is rebuilt by train.py)
 backend/app/   FastAPI app
 frontend/      Vite + React + TypeScript + react-three-fiber (public/heart.glb)
-tools/         build_heart.py: BodyParts3D -> heart.glb
+tools/         build_heart.py (BodyParts3D -> bp3d_heart.glb), fit_surface.py (-> frontend/public/heart.glb)
 tests/         leakage, API and rendered-colour tests
 docs/          6-page write-up (md + pdf), screenshot script, figures
 ```
