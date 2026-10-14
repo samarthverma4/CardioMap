@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { pct } from '../api'
-import type { Anatomy, Evidence, Prediction, Preset, ShapItem, Vessel } from '../types'
+import type { Evidence, Prediction, Preset, ShapItem, Vessel } from '../types'
 import { VESSELS } from '../types'
 
 const EVIDENCE_COPY: Record<Evidence, string> = {
@@ -75,52 +75,15 @@ function ShapChart({ items, scale }: { items: ShapItem[]; scale: string }) {
   )
 }
 
-function Bullseye({ anatomy, vessel, color }: { anatomy: Anatomy; vessel: Vessel | null; color: string | null }) {
-  // AHA 17-segment: rings of 6 (basal), 6 (mid), 4 (apical), 1 (apex). Segment 1 = anterior at top.
-  const owner = (seg: number) => VESSELS.find((v) => anatomy.aha_17_segments[v].includes(seg))
-  const arc = (r0: number, r1: number, a0: number, a1: number) => {
-    const p = (r: number, a: number) => [100 + r * Math.sin(a), 100 - r * Math.cos(a)].map((n) => n.toFixed(2)).join(' ')
-    const large = a1 - a0 > Math.PI ? 1 : 0
-    return `M${p(r1, a0)} A${r1} ${r1} 0 ${large} 1 ${p(r1, a1)} L${p(r0, a1)} A${r0} ${r0} 0 ${large} 0 ${p(r0, a0)}Z`
-  }
-  const segs: { n: number; d: string }[] = []
-  const ring = (start: number, count: number, r0: number, r1: number, offset: number) => {
-    for (let i = 0; i < count; i++) {
-      // AHA numbering runs counter-clockwise on the standard bullseye
-      const a0 = offset - ((i + 1) * 2 * Math.PI) / count
-      segs.push({ n: start + i, d: arc(r0, r1, a0, a0 + (2 * Math.PI) / count) })
-    }
-  }
-  ring(1, 6, 66, 94, Math.PI / 6)
-  ring(7, 6, 40, 66, Math.PI / 6)
-  ring(13, 4, 16, 40, Math.PI / 4)
-  return (
-    <figure className="bullseye">
-      <svg viewBox="0 0 200 200" role="img" aria-label={`AHA 17-segment bullseye${vessel ? `, ${vessel} territory highlighted` : ''}`}>
-        {segs.map((s) => (
-          <path key={s.n} d={s.d} className="seg-path" style={owner(s.n) === vessel && color ? { fill: color, fillOpacity: 0.55 } : undefined}>
-            <title>Segment {s.n}: {owner(s.n)}</title>
-          </path>
-        ))}
-        <circle cx="100" cy="100" r="16" className="seg-path"
-          style={owner(17) === vessel && color ? { fill: color, fillOpacity: 0.55 } : undefined}><title>Segment 17 (apex): LAD</title></circle>
-        <text x="100" y="12" textAnchor="middle" className="bull-dir">anterior</text>
-      </svg>
-      <figcaption>{vessel ? `${vessel} territory, ` : 'Territories, '}{anatomy.dominance_assumption}</figcaption>
-    </figure>
-  )
-}
-
 interface Props {
   prediction: Prediction
-  anatomy: Anatomy
   selected: Vessel | null
   onSelect: (v: Vessel | null) => void
   preset: Preset | null
   busy: boolean
 }
 
-export default function Results({ prediction: d, anatomy, selected, onSelect, preset, busy }: Props) {
+export default function Results({ prediction: d, selected, onSelect, preset, busy }: Props) {
   const [revealed, setRevealed] = useState<string | null>(null)
   const target = selected ? d.vessels[selected] : d.cad
   const note = d.population_note.toLowerCase()
@@ -176,8 +139,6 @@ export default function Results({ prediction: d, anatomy, selected, onSelect, pr
         <p className="sentence">{target.explanation}</p>
         <ShapChart items={target.shap} scale={target.shap_scale} />
       </div>
-
-      <Bullseye anatomy={anatomy} vessel={selected} color={selected ? d.scene_state[selected].color : null} />
 
       {preset && (
         <div className="reveal">

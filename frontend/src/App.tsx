@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { api } from './api'
+import Bullseye from './components/Bullseye'
 import ModelCard from './components/ModelCard'
 import PatientForm from './components/PatientForm'
 import Results from './components/Results'
@@ -118,6 +119,7 @@ export default function App() {
               </label>
             </div>
             <Legend meta={s.meta} />
+            <Bullseye anatomy={s.anatomy} prediction={pred} selected={selected} onSelect={setSelected} />
             <p className="model-credit">
               Heart: <a href="https://sketchfab.com/3d-models/realistic-human-heart-3f8072336ce94d18b3d0d055a1ece089" target="_blank" rel="noreferrer">“Realistic Human Heart” by neshallads</a>, CC BY 4.0.
               {' '}Coronary arteries: <a href="https://dbarchive.biosciencedbc.jp/en/bodyparts3d/" target="_blank" rel="noreferrer">BodyParts3D</a>, © The Database Center for Life Science, CC BY 4.0.
@@ -126,7 +128,7 @@ export default function App() {
           <aside className="col-results">
             {predError && <p className="error-box" role="alert">{predError}</p>}
             {pred && (
-              <Results prediction={pred} anatomy={s.anatomy} selected={selected} onSelect={setSelected} preset={preset} busy={busy} />
+              <Results prediction={pred} selected={selected} onSelect={setSelected} preset={preset} busy={busy} />
             )}
           </aside>
         </main>
