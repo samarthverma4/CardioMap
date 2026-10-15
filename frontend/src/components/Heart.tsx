@@ -99,6 +99,7 @@ interface ArteryProps {
 const reducedMotion = () => typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
 function withStreamDistance(geo: THREE.BufferGeometry, ostium: THREE.Vector3) {
+  if (!geo.getAttribute('normal')) geo.computeVertexNormals()   // lighting and the glow both need normals
   if (geo.getAttribute('aDist')) return geo
   const pos = geo.attributes.position as THREE.BufferAttribute
   const d = new Float32Array(pos.count)
@@ -140,7 +141,8 @@ const streamMaterial = (color: string) =>
       void main() {
         vDist = aDist;
         vec4 mv = modelViewMatrix * vec4(position + normal * 0.02, 1.0);
-        vN = normalize(normalMatrix * normal);
+        // vV is set from mv below; vN from the normal matrix (normalised in the fragment shader)
+        vN = normalMatrix * normal;
         vV = normalize(-mv.xyz);
         gl_Position = projectionMatrix * mv;
       }`,
@@ -152,7 +154,10 @@ const streamMaterial = (color: string) =>
       varying vec3 vN;
       varying vec3 vV;
       void main() {
-        float fres = pow(1.0 - abs(dot(normalize(vN), normalize(vV))), 2.0);
+        // guard against zero-length vectors: normalize(0) is NaN on some GPUs (e.g. Apple Metal) and drops the pixel
+        vec3 n = length(vN) > 1e-5 ? normalize(vN) : vec3(0.0, 0.0, 1.0);
+        vec3 v = length(vV) > 1e-5 ? normalize(vV) : vec3(0.0, 0.0, 1.0);
+        float fres = pow(clamp(1.0 - abs(dot(n, v)), 0.0, 1.0), 2.0);
         float s = fract(vDist * 4.0 - uTime * 0.5);
         float pulse = (pow(s, 6.0) + 0.6 * pow(s, 40.0)) * uMotion;   // long streak, bright head, tail toward the ostium
         float halo = 0.28 + 0.7 * fres;

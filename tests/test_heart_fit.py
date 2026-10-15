@@ -32,3 +32,15 @@ def test_artery_rests_on_surface(scene, vessel):
     height = ((p - cp) * surf.face_normals[tri]).sum(1)   # signed height above the surface (scene units, heart 3.4 tall)
     assert (height > 0.08).mean() < 0.01, "artery floats above the surface"
     assert (height < -0.03).mean() < 0.01, "artery is buried in the surface"
+
+
+def test_every_mesh_has_normals():
+    """Normals are required for lighting, the selection glow and the weak-evidence outline.
+    Without them some GPUs (Apple Metal) discard those pixels entirely."""
+    import json
+    import struct
+    data = GLB.read_bytes()
+    n = struct.unpack("<I", data[12:16])[0]
+    gltf = json.loads(data[20:20 + n])
+    missing = [m["name"] for m in gltf["meshes"] if any("NORMAL" not in p["attributes"] for p in m["primitives"])]
+    assert not missing, f"meshes without normals: {missing}"

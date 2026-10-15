@@ -186,10 +186,13 @@ def main(bp3d_glb: Path, surface_gltf: Path, out: Path = OUT / "heart.glb") -> N
         scene.add_geometry(sub, node_name=name, geom_name=name)
         counts[name] = len(faces)
     for k, a in arteries.items():
+        a = trimesh.Trimesh(a.vertices, a.faces, process=False)   # drop stale caches after moving vertices
+        a.fix_normals()
+        _ = a.vertex_normals                                        # computed, so they are exported
         scene.add_geometry(a, node_name=k, geom_name=k)
         counts[k] = len(a.faces)
     out.parent.mkdir(parents=True, exist_ok=True)
-    scene.export(out)
+    scene.export(out, include_normals=True)
     meta = json.loads((OUT / "heart_meta.json").read_text()) if (OUT / "heart_meta.json").exists() else {}
     meta.update({"surface": CREDIT, "arteries": meta.get("source", ""), "faces": counts,
                  "note": "Coronary arteries from BodyParts3D fitted onto the textured surface: ICP, non-rigid registration (NRICP), seating on the surface."})
