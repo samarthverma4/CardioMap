@@ -10,7 +10,7 @@ CardioMap takes bedside data (history, symptoms, exam, ECG, labs, echo), estimat
 
 **Demo video:** [https://www.youtube.com/watch?v=l9Fn8tcCOsU](https://www.youtube.com/watch?v=l9Fn8tcCOsU)
 
-[![CardioMap demo video](https://img.youtube.com/vi/l9Fn8tcCOsU/hqdefault.jpg)](https://www.youtube.com/watch?v=l9Fn8tcCOsU)
+[![CardioMap demo video](docs/devpost/00_poster.jpg)](https://www.youtube.com/watch?v=l9Fn8tcCOsU)
 
 ![Patient view](docs/figures/02_sample_c_lad_selected.png)
 
