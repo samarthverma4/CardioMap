@@ -172,6 +172,7 @@ function Stream({ geometry, color }: { geometry: THREE.BufferGeometry; color: st
   useFrame((_, dt) => {
     if (!mat.uniforms.uMotion.value) return
     mat.uniforms.uTime.value += dt
+    ;(window as unknown as { __cardiomapStream?: number }).__cardiomapStream = mat.uniforms.uTime.value
     invalidate()   // demand frameloop: keep rendering only while a vessel is selected
   })
   useEffect(() => invalidate(), [invalidate])

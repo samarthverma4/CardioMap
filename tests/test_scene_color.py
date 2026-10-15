@@ -92,3 +92,15 @@ def test_rendered_artery_colour_matches_api(server, page, preset):
     )
     rendered = page.evaluate("window.__cardiomap.arteryColors()")
     assert rendered == expected
+
+
+def test_selected_artery_streams(server, page):
+    """Selecting an artery starts the streaming-glow animation, and its clock keeps advancing."""
+    page.goto(server)
+    page.wait_for_selector("#preset")
+    page.wait_for_function("() => window.__cardiomap && window.__cardiomap.arteryColors().LAD", timeout=15000)
+    page.click(".vessel-row >> text=LAD")
+    page.wait_for_function("() => (window.__cardiomapStream || 0) > 0.2", timeout=10000)
+    t1 = page.evaluate("window.__cardiomapStream")
+    page.wait_for_timeout(600)
+    assert page.evaluate("window.__cardiomapStream") > t1

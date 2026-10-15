@@ -188,12 +188,24 @@ def api_meta():
             "versions": BUNDLE["versions"], "dataset_sha256": BUNDLE["dataset_sha256"]}
 
 
+# Hashed bundles (/assets/*) never change, so they may be cached forever; everything else (index.html,
+# heart.glb) must be revalidated, or a browser keeps showing the previous build after a rebuild.
+NO_CACHE = {"Cache-Control": "no-cache"}
+
+
+class ImmutableStatic(StaticFiles):
+    async def get_response(self, path, scope):
+        r = await super().get_response(path, scope)
+        r.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+        return r
+
+
 if DIST.exists():
-    app.mount("/assets", StaticFiles(directory=DIST / "assets"), name="assets")
+    app.mount("/assets", ImmutableStatic(directory=DIST / "assets"), name="assets")
 
     @app.get("/{path:path}")
     def spa(path: str):
         f = DIST / path
         if path and f.is_file() and DIST in f.resolve().parents:
-            return FileResponse(f)
-        return FileResponse(DIST / "index.html")
+            return FileResponse(f, headers=NO_CACHE)
+        return FileResponse(DIST / "index.html", headers=NO_CACHE)
