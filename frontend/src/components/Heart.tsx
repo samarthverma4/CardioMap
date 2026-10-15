@@ -12,27 +12,28 @@ import { pct } from '../api'
    The surface is split into each artery's territory (myo-LAD, myo-LCX, myo-RCA) plus myo-base. */
 const MODEL_URL = '/heart.glb'
 const OPACITY: Record<Evidence, number> = { moderate: 1, limited: 0.7, weak: 0.45 }
-const VESSEL = '#86939c'
 
 type Nodes = Record<string, THREE.Mesh>
 
 /* Weak evidence: a dashed outline drawn as a slightly inflated back-face shell with stripes discarded. */
+/* Weak evidence: a thin dashed sleeve around the vessel. Dashes run along the vessel (aDist = distance from
+   the ostium), so they read as a dashed line on every branch instead of world-space stripes. */
 const dashedOutline = (color: string) =>
   new THREE.ShaderMaterial({
     uniforms: { color: { value: new THREE.Color(color) } },
     vertexShader: `
-      varying vec3 vPos;
+      attribute float aDist;
+      varying float vD;
       void main() {
-        vec3 p = position + normal * 0.022;
-        vPos = p;
-        gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
+        vD = aDist;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position + normal * 0.012, 1.0);
       }`,
     fragmentShader: `
       uniform vec3 color;
-      varying vec3 vPos;
+      varying float vD;
       void main() {
-        if (fract((vPos.x + vPos.y + vPos.z) * 9.0) > 0.5) discard;
-        gl_FragColor = vec4(mix(color, vec3(0.92), 0.55), 0.9);
+        if (fract(vD * 70.0) > 0.55) discard;
+        gl_FragColor = vec4(mix(color, vec3(1.0), 0.45), 0.8);
       }`,
     side: THREE.BackSide,
     transparent: true,
@@ -217,34 +218,48 @@ function Artery({ vessel, geometry, color, evidence, selected, onHover, onSelect
   )
 }
 
+/* Heart surface: one textured mesh with per-vertex territory weights (_TERRITORY = LAD, LCX, RCA). The selected
+   territory is tinted in the shader with a soft edge, instead of switching materials on cut-up pieces. */
 function Myocardium({ nodes, tint }: { nodes: Nodes; tint: { vessel: Vessel; color: string } | null }) {
-  // Surface meshes carry their own (textured) material from the GLB; the selected territory is tinted by
-  // multiplying the texture with the vessel colour.
-  const tinted = useMemo(() => {
-    if (!tint) return null
-    const m = (nodes[`myo-${tint.vessel}`].material as THREE.MeshStandardMaterial).clone()
-    m.color = new THREE.Color('#ffffff').lerp(new THREE.Color(tint.color), 0.45)
-    m.emissive = new THREE.Color(tint.color)
-    m.emissiveIntensity = 0.06
+  const myo = nodes.myo
+  const geometry = useMemo(() => {
+    const g = myo.geometry
+    const t = g.getAttribute('_territory')
+    if (t && !g.getAttribute('aTerr')) g.setAttribute('aTerr', t)
+    return g
+  }, [myo])
+  const uniforms = useMemo(() => ({ uSel: { value: new THREE.Vector3() }, uTint: { value: new THREE.Color() } }), [])
+  const material = useMemo(() => {
+    const m = (myo.material as THREE.MeshStandardMaterial).clone()
+    m.onBeforeCompile = (shader) => {
+      shader.uniforms.uSel = uniforms.uSel
+      shader.uniforms.uTint = uniforms.uTint
+      shader.vertexShader = shader.vertexShader
+        .replace('#include <common>', '#include <common>\nattribute vec4 aTerr;\nvarying vec3 vTerr;')
+        .replace('#include <begin_vertex>', '#include <begin_vertex>\nvTerr = aTerr.xyz;')
+      shader.fragmentShader = shader.fragmentShader
+        .replace('#include <common>', '#include <common>\nuniform vec3 uSel;\nuniform vec3 uTint;\nvarying vec3 vTerr;')
+        .replace('#include <color_fragment>', `#include <color_fragment>
+          float wSel = smoothstep(0.15, 0.85, dot(vTerr, uSel));
+          diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * 0.35 + uTint * 0.75, wSel * 0.55);`)
+    }
+    m.customProgramCacheKey = () => 'myo-territory'
     return m
-  }, [nodes, tint])
-  useEffect(() => () => tinted?.dispose(), [tinted])
-  const surface = ['myo-LAD', 'myo-LCX', 'myo-RCA', 'myo-base']
+  }, [myo, uniforms])
+  useEffect(() => () => material.dispose(), [material])
+  const invalidate = useThree((st) => st.invalidate)
+  useEffect(() => {
+    uniforms.uSel.value.set(tint?.vessel === 'LAD' ? 1 : 0, tint?.vessel === 'LCX' ? 1 : 0, tint?.vessel === 'RCA' ? 1 : 0)
+    if (tint) uniforms.uTint.value.set(tint.color)
+    invalidate()
+  }, [tint, uniforms, invalidate])
   return (
     <group>
-      {surface.map((n) => (
-        <mesh key={n} name={n} geometry={nodes[n].geometry}
-          material={tint && n === `myo-${tint.vessel}` ? tinted! : nodes[n].material}
-          // The heart surface blocks pointer events, so arteries behind it can't be hovered or clicked through it.
-          onPointerOver={(e) => e.stopPropagation()}
-          onPointerMove={(e) => e.stopPropagation()}
-          onClick={(e) => e.stopPropagation()} />
-      ))}
-      {['aorta', 'pulmonary'].filter((n) => nodes[n]).map((n) => (
-        <mesh key={n} name={n} geometry={nodes[n].geometry}>
-          <meshStandardMaterial color={VESSEL} roughness={0.6} />
-        </mesh>
-      ))}
+      <mesh name="myo" geometry={geometry} material={material}
+        // The heart surface blocks pointer events, so arteries behind it can't be hovered or clicked through it.
+        onPointerOver={(e) => e.stopPropagation()}
+        onPointerMove={(e) => e.stopPropagation()}
+        onClick={(e) => e.stopPropagation()} />
       <mesh name="LM" geometry={nodes.LM.geometry}>
         <meshStandardMaterial color="#9aa4ab" roughness={0.5} />
       </mesh>

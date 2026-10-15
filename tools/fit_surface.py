@@ -43,7 +43,8 @@ NRICP_STEPS = None  # trimesh default schedule (stiffness 0.01 -> 0.002, landmar
 SEAT_K = 30         # neighbours used to estimate a tube's centreline height
 SEAT_ITERS = 3
 SEAT_FRACTION = 0.35  # centreline height above the surface, as a fraction of the tube radius
-TERRITORY_SMOOTHING = 6
+TERRITORY_SOFTNESS = 0.012   # softmax temperature as a fraction of the heart height (edge width)
+TERRITORY_NEIGHBOURS = 12
 HEIGHT = 3.4      # output height in scene units
 
 
@@ -168,23 +169,35 @@ def main(bp3d_glb: Path, surface_gltf: Path, out: Path = OUT / "heart.glb") -> N
 
     scene = trimesh.Scene()
     counts = {}
-    # face labels 0..2 = LAD/LCX/RCA territory, 3 = base; smooth with a neighbour-majority filter so the
-    # territory tint has clean edges instead of isolated triangles
-    label = np.where(ventricular, terr, 3)
-    adj = target.face_adjacency
-    for _ in range(TERRITORY_SMOOTHING):
-        votes = np.zeros((len(label), 4))
-        np.add.at(votes, (np.arange(len(label)), label), 1.5)
-        np.add.at(votes, (adj[:, 0], label[adj[:, 1]]), 1)
-        np.add.at(votes, (adj[:, 1], label[adj[:, 0]]), 1)
-        label = votes.argmax(1)
-    groups = {f"myo-{v}": np.where(label == i)[0] for i, v in enumerate(VESSELS)}
-    groups["myo-base"] = np.where(label == 3)[0]
-    for name, faces in groups.items():
-        sub = target.submesh([faces], append=True)
-        sub.visual.material = pbr
-        scene.add_geometry(sub, node_name=name, geom_name=name)
-        counts[name] = len(faces)
+    # Territory weights per vertex (smooth, for a shader tint instead of a jagged per-triangle split):
+    #   w_v = ventricular(vertex) * softmax over arteries of -distance / TERRITORY_SOFTNESS,
+    #   then averaged over 3D neighbours (handles duplicated vertices at texture seams).
+    vf = target.vertex_faces                                   # -1 padded
+    vent_face = ventricular.astype(float)
+    valid = vf >= 0
+    vent_v = (vent_face[np.where(valid, vf, 0)] * valid).sum(1) / np.maximum(valid.sum(1), 1)
+    d = np.column_stack([cKDTree(arteries[v].vertices).query(target.vertices)[0] for v in VESSELS])
+    z = -(d - d.min(1, keepdims=True)) / (TERRITORY_SOFTNESS * HEIGHT)
+    # Per-artery offsets so the ventricular surface splits in the AHA 17-segment proportions
+    # (right-dominant: LAD 7, LCX 5, RCA 5 segments). Nearest-vessel alone gives the short BodyParts3D LCX
+    # far too little of the lateral wall.
+    goal = np.array([7, 5, 5], float) / 17
+    vmask = vent_v > 0.5
+    bias = np.zeros(3)
+    for _ in range(400):
+        share = np.bincount((z + bias)[vmask].argmax(1), minlength=3) / vmask.sum()
+        bias += 0.5 * (goal - share)
+    z = z + bias
+    w = np.exp(z - z.max(1, keepdims=True))
+    w /= w.sum(1, keepdims=True)
+    w *= vent_v[:, None]
+    nb = cKDTree(target.vertices).query(target.vertices, k=TERRITORY_NEIGHBOURS)[1]
+    for _ in range(3):
+        w = w[nb].mean(1)
+    target.vertex_attributes["_TERRITORY"] = np.column_stack([w, np.zeros(len(w))]).astype(np.float32)
+    scene.add_geometry(target, node_name="myo", geom_name="myo")
+    counts["myo"] = len(target.faces)
+    counts["territory_share"] = {v: round(float((w.argmax(1) == i)[w.max(1) > 0.5].mean()), 3) for i, v in enumerate(VESSELS)}
     for k, a in arteries.items():
         a = trimesh.Trimesh(a.vertices, a.faces, process=False)   # drop stale caches after moving vertices
         a.fix_normals()

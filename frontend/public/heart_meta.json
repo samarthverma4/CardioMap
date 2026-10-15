@@ -3,10 +3,12 @@
  "url": "https://dbarchive.biosciencedbc.jp/en/bodyparts3d/",
  "shell_offset_mm": 3.61,
  "faces": {
-  "myo-LAD": 2159,
-  "myo-LCX": 696,
-  "myo-RCA": 5339,
-  "myo-base": 14368,
+  "myo": 22562,
+  "territory_share": {
+   "LAD": 0.414,
+   "LCX": 0.292,
+   "RCA": 0.294
+  },
   "LAD": 9000,
   "LCX": 3018,
   "RCA": 8999,

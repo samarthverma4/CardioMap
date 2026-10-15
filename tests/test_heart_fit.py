@@ -8,7 +8,7 @@ trimesh = pytest.importorskip("trimesh")
 pytest.importorskip("rtree")
 
 GLB = Path(__file__).resolve().parents[1] / "frontend" / "public" / "heart.glb"
-SURFACE = ["myo-LAD", "myo-LCX", "myo-RCA", "myo-base"]
+SURFACE = ["myo"]
 
 
 @pytest.fixture(scope="module")
@@ -44,3 +44,19 @@ def test_every_mesh_has_normals():
     gltf = json.loads(data[20:20 + n])
     missing = [m["name"] for m in gltf["meshes"] if any("NORMAL" not in p["attributes"] for p in m["primitives"])]
     assert not missing, f"meshes without normals: {missing}"
+
+
+def test_territory_weights_follow_aha_proportions(scene):
+    """Smooth territory weights exist, and the ventricular surface splits roughly 7:5:5 (AHA, right-dominant)."""
+    nodes, _, _ = scene
+    data = GLB.read_bytes()
+    import json
+    import struct
+    n = struct.unpack("<I", data[12:16])[0]
+    gltf = json.loads(data[20:20 + n])
+    myo = next(m for m in gltf["meshes"] if m["name"] == "myo")
+    assert "_TERRITORY" in myo["primitives"][0]["attributes"]
+    w = nodes["myo"].vertex_attributes["_TERRITORY"][:, :3]
+    strong = w.max(1) > 0.5
+    share = np.bincount(w[strong].argmax(1), minlength=3) / strong.sum()
+    assert np.allclose(share, [7 / 17, 5 / 17, 5 / 17], atol=0.06), share
