@@ -8,6 +8,8 @@ Track A entry, Multimodal AI Hackathon 2026, IIT Mandi.
 
 CardioMap takes bedside data (history, symptoms, exam, ECG, labs, echo), estimates the probability of coronary artery disease (CAD) and paints a per-vessel score onto a generic 3D heart. The vessel scores sit beside the overall CAD probability, each with an evidence badge, because the main finding of the analysis is that **vessel predictions from bedside data mostly re-encode overall CAD risk**. The app is built so that nobody reads a red LAD as "the lesion is in the LAD".
 
+**Live app:** [https://cardio-map-beta.vercel.app](https://cardio-map-beta.vercel.app) (first load after idle takes a few seconds while the API wakes up)
+
 **Demo video:** [https://www.youtube.com/watch?v=l9Fn8tcCOsU](https://www.youtube.com/watch?v=l9Fn8tcCOsU)
 
 [![CardioMap demo video](docs/devpost/00_poster.jpg)](https://www.youtube.com/watch?v=l9Fn8tcCOsU)
