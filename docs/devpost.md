@@ -90,6 +90,7 @@ python, scikit-learn, numpy, pandas, shap, fastapi, uvicorn, react, typescript, 
 ## "Try it out" links
 
 - Live app: <Vercel URL, after the project is imported>
+- Demo video: https://www.youtube.com/watch?v=l9Fn8tcCOsU
 - Source code: https://github.com/samarthverma4/CardioMap
 - Write-up (PDF): https://github.com/samarthverma4/CardioMap/blob/main/docs/writeup.pdf
 
@@ -107,4 +108,4 @@ python, scikit-learn, numpy, pandas, shap, fastapi, uvicorn, react, typescript, 
 
 ## Video demo link
 
-<YouTube URL>
+https://www.youtube.com/watch?v=l9Fn8tcCOsU
