@@ -1,5 +1,5 @@
 import { OrbitControls, useGLTF } from '@react-three/drei'
-import { Canvas, useThree } from '@react-three/fiber'
+import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import type { ThreeEvent } from '@react-three/fiber'
 import { useEffect, useMemo, useState } from 'react'
 import * as THREE from 'three'
@@ -94,6 +94,90 @@ interface ArteryProps {
   onSelect: (v: Vessel) => void
 }
 
+/* Selection glow: bright pulses stream from the ostium to the branch tips, inside a soft fresnel halo.
+   aDist = each vertex's distance from the vessel's ostium, normalised 0..1 per vessel. */
+const reducedMotion = () => typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+
+function withStreamDistance(geo: THREE.BufferGeometry, ostium: THREE.Vector3) {
+  if (geo.getAttribute('aDist')) return geo
+  const pos = geo.attributes.position as THREE.BufferAttribute
+  const d = new Float32Array(pos.count)
+  const v = new THREE.Vector3()
+  let max = 1e-6
+  for (let i = 0; i < pos.count; i++) {
+    d[i] = v.fromBufferAttribute(pos, i).distanceTo(ostium)
+    max = Math.max(max, d[i])
+  }
+  for (let i = 0; i < d.length; i++) d[i] /= max
+  geo.setAttribute('aDist', new THREE.BufferAttribute(d, 1))
+  return geo
+}
+
+/* Ostium: LAD and LCX start where they meet the left main; the RCA at its highest point (aortic root). */
+function ostiumOf(vessel: Vessel, geo: THREE.BufferGeometry, lm: THREE.BufferGeometry) {
+  const pos = geo.attributes.position as THREE.BufferAttribute
+  const v = new THREE.Vector3(), best = new THREE.Vector3()
+  if (vessel === 'RCA') {
+    let top = -Infinity
+    for (let i = 0; i < pos.count; i++) { v.fromBufferAttribute(pos, i); if (v.y > top) { top = v.y; best.copy(v) } }
+    return best
+  }
+  lm.computeBoundingBox()
+  const c = lm.boundingBox!.getCenter(new THREE.Vector3())
+  let near = Infinity
+  for (let i = 0; i < pos.count; i++) { v.fromBufferAttribute(pos, i); const d = v.distanceTo(c); if (d < near) { near = d; best.copy(v) } }
+  return best
+}
+
+const streamMaterial = (color: string) =>
+  new THREE.ShaderMaterial({
+    uniforms: { uTime: { value: 0 }, uColor: { value: new THREE.Color(color) }, uMotion: { value: reducedMotion() ? 0 : 1 } },
+    vertexShader: `
+      attribute float aDist;
+      varying float vDist;
+      varying vec3 vN;
+      varying vec3 vV;
+      void main() {
+        vDist = aDist;
+        vec4 mv = modelViewMatrix * vec4(position + normal * 0.02, 1.0);
+        vN = normalize(normalMatrix * normal);
+        vV = normalize(-mv.xyz);
+        gl_Position = projectionMatrix * mv;
+      }`,
+    fragmentShader: `
+      uniform float uTime;
+      uniform vec3 uColor;
+      uniform float uMotion;
+      varying float vDist;
+      varying vec3 vN;
+      varying vec3 vV;
+      void main() {
+        float fres = pow(1.0 - abs(dot(normalize(vN), normalize(vV))), 2.0);
+        float s = fract(vDist * 4.0 - uTime * 0.5);
+        float pulse = (pow(s, 6.0) + 0.6 * pow(s, 40.0)) * uMotion;   // long streak, bright head, tail toward the ostium
+        float halo = 0.28 + 0.7 * fres;
+        float a = clamp(halo * 0.55 + pulse * (0.75 + 0.5 * fres), 0.0, 1.0);
+        vec3 c = mix(uColor * 1.35, vec3(1.0, 0.97, 0.9), pulse * 0.75);
+        gl_FragColor = vec4(c * a, a);
+      }`,
+    transparent: true,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+  })
+
+function Stream({ geometry, color }: { geometry: THREE.BufferGeometry; color: string }) {
+  const mat = useMemo(() => streamMaterial(color), [color])
+  useEffect(() => () => mat.dispose(), [mat])
+  const invalidate = useThree((st) => st.invalidate)
+  useFrame((_, dt) => {
+    if (!mat.uniforms.uMotion.value) return
+    mat.uniforms.uTime.value += dt
+    invalidate()   // demand frameloop: keep rendering only while a vessel is selected
+  })
+  useEffect(() => invalidate(), [invalidate])
+  return <mesh geometry={geometry} material={mat} renderOrder={5} raycast={() => null} name="stream" />
+}
+
 function Artery({ vessel, geometry, color, evidence, selected, onHover, onSelect }: ArteryProps) {
   const opacity = OPACITY[evidence]
   const outline = useMemo(() => (evidence === 'weak' ? dashedOutline(color) : null), [evidence, color])
@@ -121,6 +205,7 @@ function Artery({ vessel, geometry, color, evidence, selected, onHover, onSelect
         />
       </mesh>
       {outline && <mesh geometry={geometry} material={outline} name={`${vessel}-weak-outline`} raycast={() => null} />}
+      {selected && <Stream geometry={geometry} color={color} />}
       <Label text={vessel} position={anchor} selected={selected} />
     </group>
   )
@@ -202,6 +287,11 @@ interface SceneProps {
 function HeartModel({ prediction, selected, onSelect, tint, onHover }: SceneProps) {
   const { nodes } = useGLTF(MODEL_URL, false, false) as unknown as { nodes: Nodes }
   const state = prediction?.scene_state
+  const geos = useMemo(
+    () => Object.fromEntries(VESSELS.map((v) =>
+      [v, withStreamDistance(nodes[v].geometry, ostiumOf(v, nodes[v].geometry, nodes.LM.geometry))])) as Record<Vessel, THREE.BufferGeometry>,
+    [nodes],
+  )
   return (
     <group rotation={[0.05, -0.2, 0]} position={[0, -0.1, 0]}>
       <Myocardium nodes={nodes} tint={tint} />
@@ -210,7 +300,7 @@ function HeartModel({ prediction, selected, onSelect, tint, onHover }: SceneProp
           <Artery
             key={v}
             vessel={v}
-            geometry={nodes[v].geometry}
+            geometry={geos[v]}
             color={state[v].color}
             evidence={state[v].evidence}
             selected={selected === v}
