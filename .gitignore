@@ -4,7 +4,6 @@ __pycache__/
 .pytest_cache/
 node_modules/
 frontend/dist/
-artifacts/models.joblib
 .DS_Store
 .claude/
 incoming/

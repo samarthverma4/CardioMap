@@ -111,13 +111,12 @@ Out-of-fold calibration slopes of the CAD model are above 1 (logistic regression
 
 **Layout.** Patient form on the left, a 3D heart in the centre, results on the right; a model card in a second tab. The form is generated from `feature_schema.json`, grouped by modality, with the 12 ESC inputs marked. Missing values default to the dataset median or mode, and the results panel says how many inputs are at defaults.
 
-**The 3D heart** combines two CC BY 4.0 sources. The surface is a textured anatomical heart ("Realistic Human Heart" by neshallads). The coronary arteries are the real anatomical meshes from BodyParts3D (DBCLS): the LAD with its diagonal, conus and septal branches, the circumflex, and the RCA with its marginal and posterior interventricular branches (right-dominant). A build script registers the BodyParts3D heart to the textured surface (rigid, then non-rigid), carries the arteries with the same smooth deformation, seats every segment on the surface, and assigns each point of the surface a smooth territory weight by nearest vessel, balanced to the AHA 17-segment proportions. The texture is desaturated so the artery colours stay readable. The model is 3.2 MB, renders on demand only and runs on a laptop without a dedicated GPU.
+**The 3D heart** combines two CC BY 4.0 sources. The surface is a textured anatomical heart ("Realistic Human Heart" by neshallads). The coronary arteries are the real anatomical meshes from BodyParts3D (DBCLS): the LAD with its diagonal, conus and septal branches, the circumflex, and the RCA with its marginal and posterior interventricular branches (right-dominant). A build script registers the BodyParts3D heart to the textured surface (rigid, then non-rigid), carries the arteries with the same smooth deformation, seats every segment on the surface, and assigns each point of the surface a smooth territory weight by nearest vessel, balanced to the AHA 17-segment proportions. The texture is desaturated so the artery colours stay readable. The model is 3.7 MB, renders on demand only and runs on a laptop without a dedicated GPU.
 
 **Two visual channels, never mixed.** Colour (green to amber to red) is the vessel score, computed by a single backend function; the frontend only paints the colours it receives. Opacity is evidence: moderate solid, limited at 70%, weak at 45% with a dashed outline. With current data no vessel is solid, which is the point.
 
 **The vessel track** is the core reading aid. Each vessel row places its score, its fold-model range and a tick for P(CAD) on one 0 to 100% line. A reader sees at once that the vessel score usually sits near the overall CAD probability.
 
-![Vessel rows: score dot, fold-model range and P(CAD) tick on one scale, with evidence badges.](figures/03_vessel_rows.png)
 
 **Guideline baseline.** Next to the CAD probability: "Guideline (ESC) inputs alone 87% → all 54 inputs 78%". The comparison shows what the extra modalities change for this patient.
 
@@ -134,7 +133,13 @@ Out-of-fold calibration slopes of the CAD model are above 1 (logistic regression
 - **Rendered-colour test.** A headless browser loads each sample patient and reads the colour actually set on each artery mesh. It must equal the API's colour exactly. All four presets pass.
 - **Container check.** The Docker build retrains the models and runs the tests; the container gives the same model choices and predictions as a local run.
 
-## 7. Limitations and responsible use
+## 7. Usage and extensibility
+
+Run `docker build -t cardiomap . && docker run -p 8000:8000 cardiomap` and open http://localhost:8000, or follow the README's local steps (Python venv, `npm run build`, `uvicorn`). Enter values in the form (any left blank use dataset defaults) or load a sample patient; predictions update live. Click an artery, results row or bullseye segment to see its score, evidence, SHAP breakdown and territory. Trained models ship in `artifacts/models.joblib`; `python ml/train.py` rebuilds them identically.
+
+The form, API validation and SHAP labels are generated from `feature_schema.json`, so a new clinical feature needs only the schema and a retrain. Each target is an independent model in one bundle, and the 3D view binds meshes by name, so new models or anatomical structures plug in without redesign.
+
+## 8. Limitations and responsible use
 
 - One centre, 303 patients, all already referred for angiography. Probabilities will not transfer to screening, primary care or emergency populations, where CAD prevalence is far lower than 71%.
 - No external validation. Bootstrap CIs ignore refit variance.
@@ -145,7 +150,7 @@ Out-of-fold calibration slopes of the CAD model are above 1 (logistic regression
 
 The intended use is education and discussion: showing clinicians and students what bedside data can and cannot say about coronary anatomy.
 
-## 8. Reproducibility and AI disclosure
+## 9. Reproducibility and AI disclosure
 
 Everything runs from the repository: `ml/reproduce.py` regenerates the evaluation (about 20 minutes on one core), `ml/train.py` the served artifacts (about 10 seconds), and `docker build` the whole app. Environment: Python 3.12, scikit-learn 1.9.1 for serving (the evaluation was run with 1.8.0), FastAPI, React, three.js and react-three-fiber. Fonts and libraries are bundled; nothing is fetched from a CDN at runtime.
 

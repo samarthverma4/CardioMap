@@ -24,7 +24,7 @@ Requirements: Python 3.11+ (tested on 3.12), Node 20+.
 
 ```bash
 python3.12 -m venv .venv && .venv/bin/pip install -r requirements.txt
-.venv/bin/python ml/train.py                 # writes artifacts/ (models.joblib is not in git)
+.venv/bin/python ml/train.py                 # optional: rebuilds artifacts/ (trained models are committed)
 (cd frontend && npm ci && npm run build)
 .venv/bin/uvicorn backend.app.main:app --port 8000
 ```
@@ -67,7 +67,7 @@ backend/app/main.py (FastAPI)          frontend/ (Vite, React, TypeScript, react
 - **Explanations**: SHAP values come from `shap.LinearExplainer` (LR, log-odds, all 303 rows as background) or `shap.TreeExplainer` (RF, probability scale) applied to the **uncalibrated** base model refit on all rows, not to the calibrated wrapper. The top 8 contributions are shown in clinical units; the BBB dummies are summed back into one input.
 - **Colour**: one function, `prob_to_color(p)` in the backend (green to amber to red). The frontend only uses the `scene_state` colours it receives.
 - **Evidence badge** per vessel: mean of LR and RF within-CAD AUC of the dedicated model scores; below 0.60 weak, 0.60–0.70 limited, above 0.70 moderate. In the 3D view, moderate is solid, limited is 70% opacity and weak is 45% opacity with a dashed outline.
-- **3D heart** (`frontend/public/heart.glb`, 3.2 MB): the textured surface of "Realistic Human Heart" by neshallads (CC BY 4.0) with the real coronary arteries from BodyParts3D (CC BY 4.0) fitted onto it. Built in two steps:
+- **3D heart** (`frontend/public/heart.glb`, 3.7 MB): the textured surface of "Realistic Human Heart" by neshallads (CC BY 4.0) with the real coronary arteries from BodyParts3D (CC BY 4.0) fitted onto it. Built in two steps:
   1. `tools/build_heart.py <bp3d folder>` builds an anatomical heart from BodyParts3D (`tools/bp3d_heart.glb`, committed): the original coronary meshes, `LAD` (with diagonals, conus and septal branches), `LCX`, `RCA` (with conus, marginal, posterior ventricular and posterior interventricular branches; right-dominant) and `LM`, plus an epicardial shell reconstructed around the cavity meshes. Inputs: `partof_BP3D_4.0_obj_99.zip` and `partof_element_parts.txt` from the BodyParts3D download page, unzipped into one folder.
   2. `tools/fit_surface.py tools/bp3d_heart.glb <scene.gltf>` aligns that heart to the textured model (rigid + scale ICP, then non-rigid NRICP registration), carries the arteries with the same smooth deformation and seats each one on the surface (half-embedded, no floating or buried segments; checked by `tests/test_heart_fit.py`), stores smooth per-vertex territory weights on the surface (`_TERRITORY`: nearest artery with a soft edge, ventricles only, balanced to the AHA 17-segment proportions LAD 7 : LCX 5 : RCA 5), and desaturates the texture so the API's artery colours stay readable. Input: the glTF download of the Sketchfab model.
   Both need `pip install -r requirements-dev.txt`. The painted vessels in the texture are decoration; the coloured, clickable arteries are the BodyParts3D meshes.
@@ -149,7 +149,7 @@ Tools: **Claude Code** (Anthropic, Claude Opus 5.5) and **Claude** (Anthropic).
 ```
 data/          dataset (hash-checked)
 ml/            features.py, train.py, reproduce.py (+ its metrics and OOF predictions)
-artifacts/     schema, metrics, presets, anatomy map (models.joblib is rebuilt by train.py)
+artifacts/     trained models (models.joblib), schema, metrics, presets, anatomy map
 backend/app/   FastAPI app
 frontend/      Vite + React + TypeScript + react-three-fiber (public/heart.glb)
 tools/         build_heart.py (BodyParts3D -> bp3d_heart.glb), fit_surface.py (-> frontend/public/heart.glb)
