@@ -1,0 +1,516 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>CardioMap film</title>
+<style>
+@font-face { font-family: Bricolage; src: url(/frontend/node_modules/@fontsource-variable/bricolage-grotesque/files/bricolage-grotesque-latin-wght-normal.woff2) format('woff2'); font-weight: 200 800; }
+@font-face { font-family: Plex; src: url(/frontend/node_modules/@fontsource/ibm-plex-mono/files/ibm-plex-mono-latin-400-normal.woff2) format('woff2'); font-weight: 400; }
+@font-face { font-family: Plex; src: url(/frontend/node_modules/@fontsource/ibm-plex-mono/files/ibm-plex-mono-latin-500-normal.woff2) format('woff2'); font-weight: 500; }
+@font-face { font-family: Public; src: url(/frontend/node_modules/@fontsource/public-sans/files/public-sans-latin-400-normal.woff2) format('woff2'); font-weight: 400; }
+@font-face { font-family: Public; src: url(/frontend/node_modules/@fontsource/public-sans/files/public-sans-latin-600-normal.woff2) format('woff2'); font-weight: 600; }
+:root { --bg:#060a0d; --ink:#e9eef1; --ink2:#9fb0bb; --ink3:#5d6d78; --red:#e0453a; --amber:#e39a35; --green:#35a866; --blue:#3b82e6; --line:rgba(255,255,255,.09); }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 1920px; height: 1080px; overflow: hidden; background: var(--bg); color: var(--ink); font-family: Public, sans-serif; }
+#stage { position: absolute; inset: 0; overflow: hidden; }
+canvas#bgfx, canvas#gl { position: absolute; inset: 0; }
+svg#fx { position: absolute; inset: 0; }
+.L { position: absolute; will-change: transform, opacity; }
+.display { font-family: Bricolage, sans-serif; font-variation-settings: 'wdth' 85; letter-spacing: -0.035em; font-weight: 700; }
+.mono { font-family: Plex, monospace; }
+.eyebrow { font-family: Plex, monospace; font-size: 22px; letter-spacing: .32em; text-transform: uppercase; color: var(--ink2); }
+.chip { position: absolute; left: 0; top: 0; padding: 9px 16px; border-radius: 999px; border: 1px solid rgba(255,255,255,.14); background: rgba(14,22,28,.85); font-family: Plex, monospace; font-size: 19px; color: #cfd9df; white-space: nowrap; }
+.card { position: absolute; padding: 16px 22px; border-radius: 14px; background: rgba(8,13,17,.78); border: 1px solid rgba(255,255,255,.12); backdrop-filter: blur(6px); }
+.badge { display: inline-block; padding: 4px 12px; white-space: nowrap; border-radius: 999px; border: 1.5px solid currentColor; font-family: Plex, monospace; font-size: 18px; letter-spacing: .08em; text-transform: uppercase; }
+.shot { position: absolute; border-radius: 16px; overflow: hidden; box-shadow: 0 40px 120px rgba(0,0,0,.6), 0 0 0 1px rgba(255,255,255,.08); background: #111; }
+.shot img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: top; }
+#grain { position: absolute; inset: 0; pointer-events: none; mix-blend-mode: overlay; opacity: .07; }
+#vignette { position: absolute; inset: 0; pointer-events: none; background: radial-gradient(ellipse at 50% 50%, transparent 55%, rgba(0,0,0,.65) 100%); }
+#flash { position: absolute; inset: 0; background: #fff; opacity: 0; pointer-events: none; mix-blend-mode: screen; }
+</style>
+<script type="importmap">{"imports":{"three":"/frontend/node_modules/three/build/three.module.js","three/addons/":"/frontend/node_modules/three/examples/jsm/"}}</script>
+</head>
+<body>
+<div id="stage">
+  <canvas id="bgfx" width="1920" height="1080"></canvas>
+  <canvas id="gl" width="1920" height="1080"></canvas>
+  <svg id="fx" width="1920" height="1080" viewBox="0 0 1920 1080">
+    <defs>
+      <filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="6" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+      <filter id="softglow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="14"/></filter>
+      <linearGradient id="risk" x1="0" x2="1"><stop offset="0" stop-color="#2e9e5b"/><stop offset=".5" stop-color="#d9822b"/><stop offset="1" stop-color="#c8382c"/></linearGradient>
+    </defs>
+  </svg>
+  <div id="dom"></div>
+  <canvas id="grain" width="960" height="540"></canvas>
+  <div id="vignette"></div>
+  <div id="flash"></div>
+</div>
+<script type="module">
+import * as THREE from 'three'
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
+
+/* ---------------- utilities ---------------- */
+const W = 1920, H = 1080
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x))
+const seg = (t, a, b) => clamp((t - a) / (b - a))
+const mix = (a, b, k) => a + (b - a) * k
+const E = {
+  out3: (x) => 1 - Math.pow(1 - x, 3),
+  out5: (x) => 1 - Math.pow(1 - x, 5),
+  inOut: (x) => (x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2),
+  in3: (x) => x * x * x,
+  back: (x) => { const c = 1.6; return 1 + (c + 1) * Math.pow(x - 1, 3) + c * Math.pow(x - 1, 2) },
+  expo: (x) => (x === 1 ? 1 : 1 - Math.pow(2, -10 * x)),
+}
+// window helper: 0 before a, ramps in over [a, a+i], holds, ramps out over [b-o, b], 0 after b
+const win = (t, a, b, i = .5, o = .5) => Math.min(E.out3(seg(t, a, a + i)), 1 - E.in3(seg(t, b - o, b)))
+let seed = 7
+const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647)
+const svgNS = 'http://www.w3.org/2000/svg'
+const fx = document.getElementById('fx'), dom = document.getElementById('dom')
+const S = (tag, attrs = {}, parent = fx) => { const e = document.createElementNS(svgNS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); parent.appendChild(e); return e }
+const D = (cls, html = '', parent = dom) => { const e = document.createElement('div'); e.className = 'L ' + cls; e.innerHTML = html; parent.appendChild(e); return e }
+const set = (e, { x = 0, y = 0, s = 1, r = 0, o = 1, blur = 0, sx, sy } = {}) => {
+  e.style.transform = `translate(${x}px,${y}px) rotate(${r}deg) scale(${sx ?? s},${sy ?? s})`
+  e.style.opacity = o
+  e.style.filter = blur > 0.05 ? `blur(${blur}px)` : 'none'
+  e.style.visibility = o <= 0.001 ? 'hidden' : 'visible'
+}
+const pct = (p) => `${Math.round(p * 100)}%`
+
+const data = await (await fetch('/video/assets/data.json')).json()
+await document.fonts.ready
+const COL = { LAD: data.vessels.LAD.color, LCX: data.vessels.LCX.color, RCA: data.vessels.RCA.color }
+const V = ['LAD', 'LCX', 'RCA']
+
+/* ---------------- background: drifting particles + grid + grain ---------------- */
+const bg = document.getElementById('bgfx').getContext('2d')
+const parts = Array.from({ length: 140 }, () => ({ x: rnd() * W, y: rnd() * H, z: .3 + rnd() * .7, ph: rnd() * 6.28 }))
+const grainC = document.getElementById('grain'), grainX = grainC.getContext('2d')
+const grainImg = grainX.createImageData(960, 540)
+function drawBg(t, tone) {
+  const g = bg.createRadialGradient(W / 2, H * .46, 50, W / 2, H / 2, 1150)
+  g.addColorStop(0, `rgba(${18 + tone * 22},${30 + tone * 6},${38},1)`); g.addColorStop(1, '#05080b')
+  bg.fillStyle = g; bg.fillRect(0, 0, W, H)
+  // perspective grid floor
+  bg.strokeStyle = 'rgba(120,160,190,0.05)'; bg.lineWidth = 1
+  for (let i = -12; i <= 12; i++) { bg.beginPath(); bg.moveTo(W / 2 + i * 40, H * .62); bg.lineTo(W / 2 + i * 260, H); bg.stroke() }
+  for (let j = 0; j < 9; j++) { const yy = H * .62 + Math.pow(j / 8, 2) * H * .38 + ((t * 30) % 40) * (j / 8); bg.beginPath(); bg.moveTo(0, yy); bg.lineTo(W, yy); bg.stroke() }
+  for (const p of parts) {
+    const x = (p.x + t * 18 * p.z) % W, y = p.y + Math.sin(t * .6 + p.ph) * 14 * p.z
+    bg.fillStyle = `rgba(200,220,235,${.12 * p.z})`; bg.beginPath(); bg.arc(x, y, 1.6 * p.z, 0, 6.28); bg.fill()
+  }
+  // film grain (deterministic per frame)
+  let s = Math.floor(t * 30) * 9301 + 49297
+  const d = grainImg.data
+  for (let i = 0; i < d.length; i += 4) { s = (s * 16807) % 2147483647; const v = (s & 255); d[i] = d[i + 1] = d[i + 2] = v; d[i + 3] = 255 }
+  grainX.putImageData(grainImg, 0, 0)
+}
+
+/* ---------------- ECG trace ---------------- */
+const BEAT = 60 / 72
+function ecgY(ph) { // ph in [0,1)
+  const g = (c, w, a) => a * Math.exp(-Math.pow((ph - c) / w, 2))
+  return g(.18, .035, -.12) + g(.35, .008, .18) + g(.38, .012, -1.0) + g(.41, .009, .32) + g(.62, .06, -.26)
+}
+const ecgGlow = S('path', { fill: 'none', stroke: '#ff5a4a', 'stroke-width': 10, opacity: .35, filter: 'url(#softglow)' })
+const ecgPath = S('path', { fill: 'none', stroke: '#ff6a5a', 'stroke-width': 3.2, 'stroke-linejoin': 'round', filter: 'url(#glow)' })
+const ecgHead = S('circle', { r: 7, fill: '#fff', filter: 'url(#glow)' })
+function drawEcg(t, { y0 = 540, amp = 150, x0 = 0, x1 = W, speed = 520, head, alpha = 1, flat = 0 }) {
+  if (alpha <= 0) { ecgPath.setAttribute('opacity', 0); ecgGlow.setAttribute('opacity', 0); ecgHead.setAttribute('opacity', 0); return }
+  const hx = head ?? Math.min(x1, x0 + t * speed)
+  const pts = []
+  for (let x = x0; x <= hx; x += 3) {
+    const tt = (x - x0) / speed
+    const ph = (tt / BEAT) % 1
+    pts.push(`${x.toFixed(1)},${(y0 + ecgY(ph) * amp * (1 - flat)).toFixed(1)}`)
+  }
+  const d = pts.length ? 'M' + pts.join('L') : ''
+  ecgPath.setAttribute('d', d); ecgGlow.setAttribute('d', d)
+  ecgPath.setAttribute('opacity', alpha); ecgGlow.setAttribute('opacity', alpha * .4)
+  const last = pts[pts.length - 1]?.split(',') ?? [x0, y0]
+  ecgHead.setAttribute('cx', last[0]); ecgHead.setAttribute('cy', last[1]); ecgHead.setAttribute('opacity', alpha)
+}
+
+/* ---------------- SCENE 1: title ---------------- */
+const title = D('display', 'CardioMap')
+Object.assign(title.style, { left: '0', top: '0', width: '1920px', textAlign: 'center', fontSize: '210px', lineHeight: '1' })
+title.innerHTML = [...'CardioMap'].map((c) => `<span style="display:inline-block">${c}</span>`).join('')
+const titleSpans = [...title.children]
+const tagline = D('', 'An honest map of coronary risk')
+Object.assign(tagline.style, { left: 0, width: '1920px', textAlign: 'center', fontSize: '40px', color: '#b9c7cf', letterSpacing: '.02em' })
+const s1eyebrow = D('eyebrow', 'Multimodal AI Hackathon 2026 · Track A')
+Object.assign(s1eyebrow.style, { left: 0, width: '1920px', textAlign: 'center' })
+
+/* ---------------- SCENE 2: inputs ---------------- */
+const groupsCol = ['#3b82e6', '#8a6cf0', '#e39a35', '#35a866', '#e0453a', '#2bb3c0', '#d36aa0']
+const chips = data.inputs.map((label, i) => {
+  const c = D('chip', label); c.style.borderColor = groupsCol[i % 7] + '88'
+  const a = (i / data.inputs.length) * Math.PI * 2 * 3.1 + rnd() * .4
+  const rad = 300 + (i % 9) * 40 + rnd() * 30
+  return { el: c, tx: 960 + Math.cos(a) * rad * 1.75 - 90, ty: 520 + Math.sin(a) * rad * .92 - 20, fx: (rnd() - .5) * 4200, fy: (rnd() - .5) * 2600, d: rnd() * .9 }
+})
+const bigN = D('display', ''); Object.assign(bigN.style, { left: '0', top: '0', width: '1920px', textAlign: 'center', fontSize: '230px', lineHeight: '1' })
+const bigNlab = D('eyebrow', 'bedside inputs'); Object.assign(bigNlab.style, { left: 0, width: '1920px', textAlign: 'center' })
+const s2q = D('display', 'Can they tell you <em style="font-style:normal;color:#ff6a5a">where</em> the disease is?')
+Object.assign(s2q.style, { left: 0, width: '1920px', textAlign: 'center', fontSize: '86px' })
+const s2stat = D('mono', `${data.metrics.n} patients · angiography-confirmed · ${data.metrics.cad_n} with CAD`)
+Object.assign(s2stat.style, { left: 0, width: '1920px', textAlign: 'center', fontSize: '26px', color: '#9fb0bb', letterSpacing: '.1em' })
+
+/* ---------------- 3D heart ---------------- */
+const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('gl'), antialias: true, alpha: true, preserveDrawingBuffer: true })
+renderer.setPixelRatio(1); renderer.setSize(W, H, false)
+renderer.outputColorSpace = THREE.SRGBColorSpace
+const scene = new THREE.Scene()
+const camera = new THREE.PerspectiveCamera(34, W / H, .1, 100)
+scene.add(new THREE.HemisphereLight('#f2e6e2', '#22303a', 1.0))
+const key = new THREE.DirectionalLight('#ffffff', 2.2); key.position.set(-3, 4, 5); scene.add(key)
+const rim = new THREE.DirectionalLight('#7fb6ff', 1.6); rim.position.set(4, 1, -4); scene.add(rim)
+const rim2 = new THREE.DirectionalLight('#ff8a6a', .7); rim2.position.set(-4, -2, -3); scene.add(rim2)
+const heart = new THREE.Group(); scene.add(heart)
+const gltf = await new GLTFLoader().loadAsync('/frontend/public/heart.glb')
+const nodes = {}; gltf.scene.traverse((o) => { if (o.isMesh) nodes[o.name] = o })
+
+// myocardium: GLB material
+const myo = new THREE.Mesh(nodes.myo.geometry, nodes.myo.material.clone()); heart.add(myo)
+myo.material.transparent = true
+const lm = new THREE.Mesh(nodes.LM.geometry, new THREE.MeshStandardMaterial({ color: '#9aa4ab', roughness: .5 })); heart.add(lm)
+
+// arteries with contrast-fill + streaming glow
+function ostium(v, geo) {
+  const pos = geo.attributes.position, p = new THREE.Vector3(), best = new THREE.Vector3()
+  if (v === 'RCA') { let top = -1e9; for (let i = 0; i < pos.count; i++) { p.fromBufferAttribute(pos, i); if (p.y > top) { top = p.y; best.copy(p) } } return best }
+  nodes.LM.geometry.computeBoundingBox(); const c = nodes.LM.geometry.boundingBox.getCenter(new THREE.Vector3())
+  let nd = 1e9; for (let i = 0; i < pos.count; i++) { p.fromBufferAttribute(pos, i); const d = p.distanceTo(c); if (d < nd) { nd = d; best.copy(p) } } return best
+}
+const art = {}
+for (const v of V) {
+  const geo = nodes[v].geometry
+  if (!geo.getAttribute('normal')) geo.computeVertexNormals()
+  const o = ostium(v, geo), pos = geo.attributes.position, d = new Float32Array(pos.count), p = new THREE.Vector3()
+  let mx = 1e-6; for (let i = 0; i < pos.count; i++) { d[i] = p.fromBufferAttribute(pos, i).distanceTo(o); mx = Math.max(mx, d[i]) }
+  for (let i = 0; i < d.length; i++) d[i] /= mx
+  geo.setAttribute('aDist', new THREE.BufferAttribute(d, 1))
+  const U = { uFill: { value: 0 }, uTime: { value: 0 }, uGlow: { value: 0 }, uColor: { value: new THREE.Color(COL[v]) } }
+  const mat = new THREE.MeshStandardMaterial({ color: COL[v], emissive: COL[v], emissiveIntensity: .45, roughness: .35 })
+  mat.onBeforeCompile = (sh) => {
+    sh.uniforms.uFill = U.uFill
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute float aDist;\nvarying float vDist;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvDist = aDist;')
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nuniform float uFill;\nvarying float vDist;')
+      .replace('#include <color_fragment>', '#include <color_fragment>\nfloat filled = step(vDist, uFill);\ndiffuseColor.rgb = mix(vec3(0.20,0.17,0.17), diffuseColor.rgb, filled);')
+      .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\ntotalEmissiveRadiance *= filled;\nfloat front = smoothstep(0.06, 0.0, abs(vDist - uFill)) * step(uFill, 1.0);\ntotalEmissiveRadiance += vec3(1.0,0.95,0.85) * front * 2.2;')
+  }
+  const mesh = new THREE.Mesh(geo, mat); heart.add(mesh)
+  const glowMat = new THREE.ShaderMaterial({
+    uniforms: U,
+    vertexShader: `attribute float aDist; varying float vD; varying vec3 vN; varying vec3 vV;
+      void main(){ vD=aDist; vec4 mv=modelViewMatrix*vec4(position+normal*0.022,1.0); vN=normalMatrix*normal; vV=-mv.xyz; gl_Position=projectionMatrix*mv; }`,
+    fragmentShader: `uniform float uTime; uniform float uGlow; uniform float uFill; uniform vec3 uColor; varying float vD; varying vec3 vN; varying vec3 vV;
+      void main(){ vec3 n=length(vN)>1e-5?normalize(vN):vec3(0,0,1); vec3 v=length(vV)>1e-5?normalize(vV):vec3(0,0,1);
+        float fres=pow(clamp(1.0-abs(dot(n,v)),0.0,1.0),2.0); float s=fract(vD*4.0-uTime*0.55);
+        float pulse=pow(s,6.0)+0.6*pow(s,40.0); float a=clamp((0.3+0.7*fres)*0.5+pulse*(0.8+0.5*fres),0.0,1.0)*uGlow*step(vD,uFill);
+        vec3 c=mix(uColor*1.4,vec3(1.0,0.97,0.9),pulse*0.75); gl_FragColor=vec4(c*a,a); }`,
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+  })
+  heart.add(new THREE.Mesh(geo, glowMat))
+  // label anchor (as in the app)
+  const dir = { LAD: new THREE.Vector3(.3, 0, 1), LCX: new THREE.Vector3(1, .25, 0), RCA: new THREE.Vector3(-1, .2, .3) }[v].normalize()
+  let bd = -1e9; const anchor = new THREE.Vector3()
+  for (let i = 0; i < pos.count; i++) { p.fromBufferAttribute(pos, i); const dd = p.dot(dir); if (dd > bd) { bd = dd; anchor.copy(p) } }
+  art[v] = { U, mat, anchor }
+}
+
+/* callouts for the heart */
+const callouts = Object.fromEntries(V.map((v) => {
+  const c = D('card', '')
+  c.innerHTML = `<div class="mono" style="font-size:22px;letter-spacing:.14em;color:#9fb0bb">${v}</div>
+    <div class="display" style="font-size:72px;line-height:1;color:${COL[v]}"><span class="num">0%</span></div>
+    <div><span class="badge" style="color:${data.vessels[v].evidence === 'weak' ? '#e0b04d' : '#9db8de'}">${data.vessels[v].evidence} evidence</span></div>`
+  const line = S('line', { stroke: COL[v], 'stroke-width': 2, opacity: 0 })
+  const dot = S('circle', { r: 6, fill: COL[v], opacity: 0, filter: 'url(#glow)' })
+  return [v, { c, line, dot, num: c.querySelector('.num') }]
+}))
+const cadCard = D('', `<div class="eyebrow" style="font-size:20px">Probability of CAD</div><div class="display" style="font-size:190px;line-height:.95"><span id="cadnum">0%</span></div><div class="mono" style="font-size:22px;color:#9fb0bb">among patients referred for angiography</div>`)
+const cadNum = cadCard.querySelector('#cadnum')
+const s3eyebrow = D('eyebrow', `Sample patient ${data.preset.name.replace('Sample ', '')} · real dataset row ${data.preset.row}`)
+
+/* ---------------- SCENE 4: honest twist ---------------- */
+const s4h = D('display', 'But where is it?'); Object.assign(s4h.style, { fontSize: '96px', left: '0', top: '0' })
+const s4sub = D('', 'Each vessel score sits right beside overall CAD risk.'); Object.assign(s4sub.style, { fontSize: '34px', color: '#b9c7cf' })
+const tracks = V.map((v, i) => {
+  const g = S('g', { opacity: 0 })
+  const y = 470 + i * 150
+  S('text', { x: 1000, y: y - 22, fill: '#e9eef1', 'font-family': 'Plex', 'font-size': 30, 'font-weight': 500 }, g).textContent = v
+  S('line', { x1: 1000, x2: 1800, y1: y, y2: y, stroke: 'rgba(255,255,255,.18)', 'stroke-width': 4, 'stroke-linecap': 'round' }, g)
+  const fill = S('line', { x1: 1000, x2: 1000, y1: y, y2: y, stroke: COL[v], 'stroke-width': 4, 'stroke-linecap': 'round', opacity: .9 }, g)
+  const cad = S('line', { x1: 0, x2: 0, y1: y - 26, y2: y + 26, stroke: '#ffffff', 'stroke-width': 4, opacity: 0 }, g)
+  const cadT = S('text', { x: 0, y: y + 58, fill: '#9fb0bb', 'font-family': 'Plex', 'font-size': 20, 'text-anchor': 'middle', opacity: 0 }, g)
+  const dot = S('circle', { cx: 1000, cy: y, r: 15, fill: COL[v], filter: 'url(#glow)' }, g)
+  const val = S('text', { x: 1800, y: y - 22, fill: COL[v], 'font-family': 'Plex', 'font-size': 30, 'text-anchor': 'end', 'font-weight': 500 }, g)
+  return { g, y, fill, cad, cadT, dot, val, v }
+})
+const s4claim = D('display', 'Vessel scores mostly <span style="color:#ff6a5a">echo</span> overall risk.')
+Object.assign(s4claim.style, { fontSize: '64px', width: '1700px', left: '0' })
+// within-CAD bars
+const wc = V.map((v, i) => {
+  const g = S('g', { opacity: 0 })
+  const x = 1060 + i * 250
+  const bar = S('rect', { x, width: 120, y: 0, height: 0, rx: 10, fill: COL[v] }, g)
+  const lab = S('text', { x: x + 60, y: 930, fill: '#e9eef1', 'font-family': 'Plex', 'font-size': 30, 'text-anchor': 'middle', 'font-weight': 500 }, g); lab.textContent = v
+  const num = S('text', { x: x + 60, y: 0, fill: '#e9eef1', 'font-family': 'Plex', 'font-size': 34, 'text-anchor': 'middle' }, g)
+  const badge = D('badge', data.vessels[v].evidence); badge.style.fontSize = '30px'; badge.style.padding = '8px 20px'; badge.style.borderWidth = '3px'
+  badge.style.color = data.vessels[v].evidence === 'weak' ? '#e0b04d' : '#9db8de'; badge.style.background = 'rgba(6,10,13,.9)'
+  return { g, x, bar, num, badge, v }
+})
+const chance = S('g', { opacity: 0 })
+S('line', { x1: 1020, x2: 1800, y1: 0, y2: 0, stroke: 'rgba(255,255,255,.5)', 'stroke-width': 2, 'stroke-dasharray': '10 8', id: 'chanceLine' }, chance)
+const chanceT = S('text', { x: 1800, y: 0, fill: '#9fb0bb', 'font-family': 'Plex', 'font-size': 22, 'text-anchor': 'end' }, chance); chanceT.textContent = 'chance'
+const wcTitle = D('eyebrow', 'Within CAD patients · vessel AUC')
+
+/* ---------------- SCENE 5: why (SHAP + bullseye) ---------------- */
+const s5h = D('display', 'Every score, explained.'); Object.assign(s5h.style, { fontSize: '96px' })
+const s5sub = D('', 'SHAP contributions, in clinical units.'); Object.assign(s5sub.style, { fontSize: '32px', color: '#b9c7cf' })
+const shap = data.cad.shap
+const shapMax = Math.max(...shap.map((s) => Math.abs(s.contribution)))
+const shapRows = shap.map((s, i) => {
+  const g = S('g', { opacity: 0 })
+  const y = 360 + i * 74
+  const l = S('text', { x: 140, y: y + 6, fill: '#e9eef1', 'font-family': 'Public', 'font-size': 30 }, g); l.textContent = s.label
+  const vv = S('text', { x: 140, y: y + 38, fill: '#7f909b', 'font-family': 'Plex', 'font-size': 22 }, g); vv.textContent = s.display_value
+  const bar = S('rect', { y: y - 16, height: 30, rx: 6, fill: s.contribution > 0 ? '#e66767' : '#3b82e6' }, g)
+  return { g, bar, s }
+})
+const axis = S('line', { x1: 920, x2: 920, y1: 330, y2: 330 + shap.length * 74, stroke: 'rgba(255,255,255,.45)', 'stroke-width': 2, opacity: 0 })
+// bullseye
+const bull = S('g', { opacity: 0 })
+const BC = { x: 1480, y: 640 }
+const arcP = (r0, r1, a0, a1) => { const p = (r, a) => `${(BC.x + r * Math.sin(a)).toFixed(1)} ${(BC.y - r * Math.cos(a)).toFixed(1)}`; const L = a1 - a0 > Math.PI ? 1 : 0; return `M${p(r1, a0)} A${r1} ${r1} 0 ${L} 1 ${p(r1, a1)} L${p(r0, a1)} A${r0} ${r0} 0 ${L} 0 ${p(r0, a0)}Z` }
+const owner = (n) => V.find((v) => data.aha[v].includes(n))
+const bsegs = []
+const ring = (start, count, r0, r1, off) => { for (let i = 0; i < count; i++) { const a0 = off - ((i + 1) * 2 * Math.PI) / count; bsegs.push({ n: start + i, el: S('path', { d: arcP(r0, r1, a0, a0 + (2 * Math.PI) / count), fill: COL[owner(start + i)], stroke: '#060a0d', 'stroke-width': 5, opacity: 0 }, bull) }) } }
+ring(1, 6, 165, 235, Math.PI / 6); ring(7, 6, 100, 165, Math.PI / 6); ring(13, 4, 40, 100, Math.PI / 4)
+bsegs.push({ n: 17, el: S('circle', { cx: BC.x, cy: BC.y, r: 40, fill: COL[owner(17)], stroke: '#060a0d', 'stroke-width': 5, opacity: 0 }, bull) })
+for (const [t, x, y] of [['anterior', BC.x, BC.y - 262], ['inferior', BC.x, BC.y + 285], ['septal', BC.x - 300, BC.y + 8], ['lateral', BC.x + 300, BC.y + 8]]) { const e = S('text', { x, y, fill: '#9fb0bb', 'font-family': 'Plex', 'font-size': 22, 'text-anchor': 'middle' }, bull); e.textContent = t }
+const bullT = D('eyebrow', 'AHA 17-segment territories'); bullT.style.fontSize = '20px'
+
+/* ---------------- SCENE 6: proof ---------------- */
+const s6h = D('eyebrow', 'Validated · 5×10 repeated cross-validation · 2,000 bootstrap resamples')
+const stats = [['CAD ROC-AUC', data.metrics.cm.CAD.roc_auc, 2], ['F1 score', data.metrics.cm.CAD.f1, 2], ['Recall', data.metrics.cm.CAD.recall, 2], ['Precision', data.metrics.cm.CAD.precision, 2]].map(([k, v, d], i) => {
+  const e = D('', `<div class="display" style="font-size:150px;line-height:1"><span class="n">0.00</span></div><div class="eyebrow" style="font-size:20px">${k}</div>`)
+  e.style.width = '420px'; e.style.textAlign = 'center'
+  return { e, v, d, n: e.querySelector('.n'), i }
+})
+// ablation chart
+const abl = S('g', { opacity: 0 })
+const ab = data.metrics.ablation, abX = (i) => 260 + i * 330, abY = (v) => 960 - (v - .89) / (.95 - .89) * 260
+const abPath = S('path', { fill: 'none', stroke: '#3b82e6', 'stroke-width': 5, 'stroke-linecap': 'round', filter: 'url(#glow)' }, abl)
+const abDots = ab.map((v, i) => S('circle', { cx: abX(i), cy: abY(v), r: 11, fill: '#3b82e6', opacity: 0 }, abl))
+const abLab = ['ESC inputs', '+ ECG', '+ echo', 'all inputs'].map((s, i) => { const e = S('text', { x: abX(i), y: 1020, fill: '#9fb0bb', 'font-family': 'Plex', 'font-size': 24, 'text-anchor': 'middle' }, abl); e.textContent = s; return e })
+const abVal = ab.map((v, i) => { const e = S('text', { x: abX(i), y: abY(v) - 26, fill: '#e9eef1', 'font-family': 'Plex', 'font-size': 26, 'text-anchor': 'middle', opacity: 0 }, abl); e.textContent = v.toFixed(3); return e })
+const gain = D('display', `+${data.metrics.esc_gain.diff.toFixed(3)} AUC`); gain.style.fontSize = '84px'; gain.style.color = '#7fb0ff'
+const gainSub = D('', 'from adding ECG + echo to guideline inputs'); gainSub.style.fontSize = '28px'; gainSub.style.color = '#b9c7cf'
+// screenshots montage
+const shots = ['02_sample_c_lad_selected.png', '06_model_card_full.png', '09_mobile.png'].map((f, i) => {
+  const e = D('shot', `<img src="/docs/figures/${f}">`)
+  const sz = [[1180, 738], [880, 560], [330, 715]][i]; e.style.width = sz[0] + 'px'; e.style.height = sz[1] + 'px'; e.style.left = '0'; e.style.top = '0'
+  return { e, sz }
+})
+
+/* ---------------- SCENE 7: outro ---------------- */
+const logo = D('display', 'CardioMap'); Object.assign(logo.style, { left: 0, width: '1920px', textAlign: 'center', fontSize: '150px' })
+const outroLine = D('', 'Predict CAD. Map the risk. <b style="color:#fff">Show the uncertainty.</b>'); Object.assign(outroLine.style, { left: 0, width: '1920px', textAlign: 'center', fontSize: '40px', color: '#b9c7cf' })
+const team = D('mono', 'Samarth Verma · Yashi Rajoriya · Anshuman Dubey'); Object.assign(team.style, { left: 0, width: '1920px', textAlign: 'center', fontSize: '26px', color: '#e9eef1', letterSpacing: '.08em' })
+const repo = D('mono', 'github.com/samarthverma4/CardioMap'); Object.assign(repo.style, { left: 0, width: '1920px', textAlign: 'center', fontSize: '24px', color: '#7fb0ff', letterSpacing: '.06em' })
+const disc = D('mono', 'Decision support / education only · not a diagnosis · not a substitute for angiography'); Object.assign(disc.style, { left: 0, width: '1920px', textAlign: 'center', fontSize: '19px', color: '#7f909b', letterSpacing: '.06em' })
+const credits = D('mono', 'Data: Z-Alizadeh Sani (UCI, CC BY 4.0) · Heart: “Realistic Human Heart” by neshallads (CC BY 4.0) · Coronaries: BodyParts3D © DBCLS (CC BY 4.0)'); Object.assign(credits.style, { left: 0, width: '1920px', textAlign: 'center', fontSize: '15px', color: '#5d6d78' })
+
+/* persistent disclaimer bug (corner) */
+const bug = D('mono', 'EDUCATION ONLY · NOT A DIAGNOSIS'); Object.assign(bug.style, { left: '60px', top: '1024px', fontSize: '15px', letterSpacing: '.2em', color: '#6c7c86' })
+const tc = D('mono', ''); Object.assign(tc.style, { left: '1700px', top: '1024px', fontSize: '15px', letterSpacing: '.2em', color: '#6c7c86', width: '160px', textAlign: 'right' })
+
+/* ---------------- camera ---------------- */
+const camAt = (az, el, r, tx = 0, ty = 0) => { camera.position.set(tx + r * Math.sin(az) * Math.cos(el), ty + r * Math.sin(el), r * Math.cos(az) * Math.cos(el)); camera.lookAt(tx, ty, 0) }
+const project = (v3) => { const p = v3.clone().applyMatrix4(heart.matrixWorld).project(camera); return { x: (p.x + 1) / 2 * W, y: (1 - p.y) / 2 * H } }
+
+/* ================== TIMELINE ================== */
+const T = { s1: [0, 5.2], s2: [5.0, 11.4], s3: [11.2, 24.2], s4: [24, 34.2], s5: [34, 43.6], s6: [43.4, 52.6], s7: [52.4, 60] }
+const flashAt = [5.0, 11.2, 24.0, 34.0, 43.4, 52.4]
+
+function render(t) {
+  const tone = win(t, 11, 34, 1, 1)
+  drawBg(t, tone)
+  tc.textContent = `00:${String(Math.floor(t)).padStart(2, '0')}:${String(Math.floor((t % 1) * 30)).padStart(2, '0')}`
+  set(bug, { o: win(t, 1, 55.8, .6, .4) * .9 }); set(tc, { o: win(t, 1, 55.8, .6, .4) * .9 })
+  let fl = 0; for (const f of flashAt) fl = Math.max(fl, Math.exp(-Math.pow((t - f) / .07, 2)) * .5)
+  document.getElementById('flash').style.opacity = fl
+
+  /* ---- S1: ECG + title ---- */
+  const a1 = win(t, 0, 5.2, .2, .45)
+  const ecgOn = win(t, 0, 5.3, .1, .5)
+  if (t < 5.4) drawEcg(t, { y0: 760, amp: 120, speed: 560, alpha: ecgOn })
+  const ti = seg(t, 1.2, 2.4)
+  titleSpans.forEach((sp, i) => {
+    const k = E.back(clamp(seg(t, 1.2 + i * .07, 1.85 + i * .07)))
+    sp.style.transform = `translateY(${(1 - k) * 120}px)`; sp.style.opacity = clamp(k * 1.4)
+    sp.style.color = i < 6 ? '#e9eef1' : '#ff6a5a'
+  })
+  set(title, { y: 360, o: a1 * (ti > 0 ? 1 : 0), s: 1 + seg(t, 4.6, 5.2) * .25, blur: seg(t, 4.7, 5.2) * 12 })
+  set(tagline, { y: 600 + (1 - E.out3(seg(t, 2.6, 3.4))) * 30, o: E.out3(seg(t, 2.6, 3.4)) * a1 })
+  set(s1eyebrow, { y: 300, o: E.out3(seg(t, 3.2, 3.8)) * a1 * .9 })
+
+  /* ---- S2: inputs ---- */
+  const a2 = win(t, 5.0, 11.4, .3, .5)
+  chips.forEach((c, i) => {
+    const kin = E.out5(seg(t, 5.1 + c.d * .9, 6.4 + c.d * .9))
+    const kout = E.in3(seg(t, 9.6 + c.d * .5, 10.9 + c.d * .3))
+    const drift = Math.sin(t * .8 + i) * 8
+    const x = mix(mix(c.fx, c.tx, kin), 940, kout), y = mix(mix(c.fy, c.ty, kin), 520, kout) + drift
+    const dim = 1 - .55 * win(t, 8.4, 10.0, .4, .4)
+    set(c.el, { x, y, o: Math.min(kin, 1 - kout) * (t < 11.2 ? 1 : 0) * dim, s: mix(1, .2, kout), blur: (1 - kin) * 8 + win(t, 8.4, 10.0, .4, .4) * 2 })
+  })
+  const cnt = Math.round(E.out3(seg(t, 5.4, 7.0)) * 54)
+  bigN.textContent = cnt
+  set(bigN, { y: 380, o: win(t, 5.3, 8.4, .3, .5), s: 1 + seg(t, 7.8, 8.4) * .15 })
+  set(bigNlab, { y: 620, o: win(t, 5.6, 8.4, .4, .5) })
+  set(s2stat, { y: 680, o: win(t, 6.2, 8.4, .4, .5) })
+  set(s2q, { y: 470 + (1 - E.out3(seg(t, 8.5, 9.2))) * 40, o: win(t, 8.5, 10.6, .5, .5) })
+
+  /* ---- 3D heart (S3, S4, S7) ---- */
+  const a3 = Math.max(win(t, 11.0, 34.4, .9, .8), win(t, 52.4, 60, 1.0, .6))
+  myo.material.opacity = a3
+  renderer.domElement.style.opacity = a3
+  let az = -0.15, el = 0.08, r = 7.4, tx = 0, ty = 0.1
+  if (t < 24) { // slow orbit in
+    const k = E.inOut(seg(t, 11, 24)); az = mix(-0.9, 0.35, k); r = mix(9.5, 6.9, k); el = mix(0.25, 0.05, k)
+  } else if (t < 34.4) { const k = E.inOut(seg(t, 24, 26)); az = mix(0.35, 0.1, k) + (t - 24) * .025; r = mix(6.9, 7.6, k); tx = mix(0, 1.55, k) }
+  else { const k = E.out3(seg(t, 52.4, 60)); az = mix(1.4, -0.25, k); r = mix(13.5, 12.2, k); el = mix(.3, .06, k); ty = .5 }
+  camAt(az, el, r, tx, ty)
+  heart.rotation.set(.05, -.2, 0)
+  heart.updateMatrixWorld(true)
+  // fills + glow
+  const fills = { LAD: seg(t, 12.6, 14.6), LCX: seg(t, 13.6, 15.6), RCA: seg(t, 14.4, 16.4) }
+  for (const v of V) {
+    const f = t >= 52.4 ? 1.1 * E.out3(seg(t, 53.0 + V.indexOf(v) * .3, 55 + V.indexOf(v) * .3)) : 1.1 * E.out3(fills[v])
+    art[v].U.uFill.value = f
+    art[v].U.uTime.value = t
+    art[v].U.uGlow.value = t >= 52.4 ? win(t, 54.5, 60, .8, .6) : (v === 'LAD' ? win(t, 18.5, 24.2, .6, .5) : 0) + win(t, 16, 24, .5, .5) * .25
+  }
+  renderer.render(scene, camera)
+
+  /* ---- S3 overlays ---- */
+  const a3o = win(t, 12.4, 24.0, .6, .5)
+  V.forEach((v, i) => {
+    const co = callouts[v]
+    const p = project(art[v].anchor)
+    const side = v === 'RCA' ? -1 : 1
+    const cx = v === 'LAD' ? 1300 : v === 'LCX' ? 1330 : 250, cy = v === 'LAD' ? 640 : v === 'LCX' ? 300 : 520
+    const k = E.out3(seg(t, 13.2 + i * .9, 14.0 + i * .9)) * a3o
+    co.num.textContent = pct(data.vessels[v].p * E.out3(seg(t, 13.2 + i * .9, 15.2 + i * .9)))
+    set(co.c, { x: cx + (1 - k) * 60 * side, y: cy, o: k })
+    const ex = side > 0 ? cx : cx + 290
+    co.line.setAttribute('x1', p.x); co.line.setAttribute('y1', p.y); co.line.setAttribute('x2', mix(p.x, ex, k)); co.line.setAttribute('y2', mix(p.y, cy + 60, k))
+    co.line.setAttribute('opacity', k * .9)
+    co.dot.setAttribute('cx', p.x); co.dot.setAttribute('cy', p.y); co.dot.setAttribute('opacity', k)
+  })
+  cadNum.textContent = pct(data.cad.p * E.out3(seg(t, 16.6, 18.4)))
+  set(cadCard, { x: 1290 + (1 - E.out3(seg(t, 16.4, 17.2))) * 80, y: 850 - 0, o: win(t, 16.4, 24.0, .6, .5), s: .62 })
+  cadCard.style.transformOrigin = '0 0'
+  set(s3eyebrow, { x: 120, y: 120, o: win(t, 12.0, 23.8, .6, .5) })
+
+  /* ---- S4: honest twist ---- */
+  const a4 = win(t, 24.2, 34.2, .5, .5)
+  set(s4h, { x: 1000, y: 200 + (1 - E.out3(seg(t, 24.3, 25.0))) * 40, o: win(t, 24.3, 29.6, .5, .5) })
+  set(s4sub, { x: 1004, y: 320, o: win(t, 24.8, 29.6, .5, .5) })
+  tracks.forEach((tr, i) => {
+    const k = E.out3(seg(t, 25.0 + i * .25, 25.8 + i * .25)) * win(t, 24.2, 29.8, .3, .5)
+    tr.g.setAttribute('opacity', k)
+    const pv = data.vessels[tr.v].p, cadx = 1000 + 800 * data.cad.p
+    const m = E.inOut(seg(t, 25.6 + i * .3, 27.0 + i * .3))
+    const x = 1000 + 800 * pv * m
+    tr.dot.setAttribute('cx', x); tr.fill.setAttribute('x2', x)
+    tr.val.textContent = pct(pv * m)
+    const kc = E.out3(seg(t, 27.2, 27.8))
+    tr.cad.setAttribute('x1', cadx); tr.cad.setAttribute('x2', cadx); tr.cad.setAttribute('opacity', kc)
+    tr.cadT.setAttribute('x', cadx); tr.cadT.setAttribute('opacity', kc); tr.cadT.textContent = `P(CAD) ${pct(data.cad.p)}`
+  })
+  set(s4claim, { x: 1000, y: 880 + (1 - E.out3(seg(t, 27.8, 28.5))) * 30, o: win(t, 27.8, 29.7, .5, .4), s: .82 })
+  s4claim.style.transformOrigin = '0 0'
+  // within-CAD bars
+  const yb = (v) => 900 - (v - .4) / .5 * 420
+  const kc2 = win(t, 29.8, 34.2, .4, .5)
+  chance.setAttribute('opacity', kc2); chance.querySelector('#chanceLine').setAttribute('y1', yb(.5)); chance.querySelector('#chanceLine').setAttribute('y2', yb(.5)); chanceT.setAttribute('y', yb(.5) - 12)
+  set(wcTitle, { x: 1060, y: 250, o: kc2 })
+  wc.forEach((b, i) => {
+    const kk = E.out5(seg(t, 30.0 + i * .3, 31.2 + i * .3))
+    const val = mix(.4, data.vessels[b.v].auc, kk)
+    b.g.setAttribute('opacity', kc2)
+    b.bar.setAttribute('y', yb(val)); b.bar.setAttribute('height', Math.max(0, 900 - yb(val)))
+    b.num.setAttribute('y', yb(val) - 18); b.num.textContent = val.toFixed(2)
+    const ks = E.back(seg(t, 31.6 + i * .25, 32.0 + i * .25))
+    set(b.badge, { x: b.x + 60 - (b.v === 'LAD' ? 85 : 55), y: yb(data.vessels[b.v].auc) - 140, s: mix(2.2, 1, ks), o: ks * kc2, r: -6 })
+  })
+
+  /* ---- S5: SHAP + bullseye ---- */
+  const a5 = win(t, 34.0, 43.6, .5, .5)
+  set(s5h, { x: 120, y: 110 + (1 - E.out3(seg(t, 34.1, 34.8))) * 40, o: a5 })
+  set(s5sub, { x: 124, y: 230, o: win(t, 34.6, 43.6, .5, .5) })
+  axis.setAttribute('opacity', a5); axis.setAttribute('y1', 330); axis.setAttribute('y2', 330 + shap.length * 74 * E.out3(seg(t, 34.6, 35.4)))
+  shapRows.forEach((r, i) => {
+    const k = E.out5(seg(t, 35.0 + i * .14, 36.0 + i * .14))
+    r.g.setAttribute('opacity', a5 * clamp(k * 2))
+    const len = Math.abs(r.s.contribution) / shapMax * 300 * k
+    r.bar.setAttribute('x', r.s.contribution > 0 ? 922 : 918 - len); r.bar.setAttribute('width', Math.max(1, len))
+  })
+  const kb = win(t, 36.6, 43.6, .5, .5)
+  bull.setAttribute('opacity', kb)
+  bull.setAttribute('transform', `rotate(${(1 - E.out5(seg(t, 36.6, 38.2))) * -90} ${BC.x} ${BC.y})`)
+  bsegs.forEach((b, i) => { const k = E.out3(seg(t, 36.8 + i * .07, 37.4 + i * .07)); const hl = owner(b.n) === V[Math.floor(seg(t, 39, 43.2) * 3) % 3] && t > 39 ? 1 : .55; b.el.setAttribute('opacity', k * hl) })
+  set(bullT, { x: BC.x - 210, y: BC.y + 330, o: kb })
+
+  /* ---- S6: proof ---- */
+  const a6 = win(t, 43.4, 52.6, .4, .5)
+  set(s6h, { x: 0, y: 120, o: a6 * .95 }); s6h.style.width = '1920px'; s6h.style.textAlign = 'center'
+  stats.forEach((s) => {
+    const k = E.out5(seg(t, 43.7 + s.i * .25, 45.0 + s.i * .25))
+    s.n.textContent = (s.v * k).toFixed(s.d)
+    set(s.e, { x: 120 + s.i * 420, y: 330 + (1 - k) * 60 - E.inOut(seg(t, 46.2, 47.0)) * 120, o: k * win(t, 43.4, 49.6, .3, .5) })
+  })
+  const ka = win(t, 46.6, 49.9, .4, .45)
+  abl.setAttribute('opacity', ka)
+  const kp = E.inOut(seg(t, 46.8, 48.4))
+  const pts = ab.map((v, i) => [abX(i), abY(v)])
+  let dpath = `M${pts[0][0]},${pts[0][1]}`; const n = (pts.length - 1) * kp
+  for (let i = 1; i <= Math.ceil(n); i++) { const f = Math.min(1, n - (i - 1)); dpath += `L${mix(pts[i - 1][0], pts[i][0], f)},${mix(pts[i - 1][1], pts[i][1], f)}` }
+  abPath.setAttribute('d', dpath)
+  abDots.forEach((d, i) => d.setAttribute('opacity', kp * 3 > i ? 1 : 0)); abVal.forEach((d, i) => d.setAttribute('opacity', kp * 3 > i - .1 ? 1 : 0))
+  set(gain, { x: 1240, y: 600, o: win(t, 48.0, 49.9, .3, .45), s: mix(1.3, 1, E.out5(seg(t, 48.0, 48.6))) })
+  set(gainSub, { x: 1244, y: 710, o: win(t, 48.3, 49.9, .3, .45) })
+  shots.forEach((s, i) => {
+    const k = E.out5(seg(t, 49.7 + i * .3, 50.9 + i * .3))
+    const out = E.in3(seg(t, 51.8, 52.6))
+    const pos = [[230, 230], [880, 330], [1500, 250]][i]
+    s.e.style.transform = `translate(${pos[0] + (1 - k) * 900}px,${pos[1] + out * -80}px) perspective(1600px) rotateY(${-22 + k * 10}deg) rotateX(${5}deg) scale(${[.55, .72, .82][i]})`
+    s.e.style.transformOrigin = '0 0'
+    s.e.style.opacity = k * (1 - out)
+    s.e.style.visibility = k > 0 ? 'visible' : 'hidden'
+  })
+
+  /* ---- S7: outro ---- */
+  const a7 = win(t, 53.6, 60, .6, .5)
+  set(logo, { y: 60 + (1 - E.out3(seg(t, 53.6, 54.4))) * 40, o: a7 })
+  set(outroLine, { y: 225, o: win(t, 54.4, 60, .6, .5) })
+  set(team, { y: 905, o: win(t, 55.4, 60, .6, .5) })
+  set(repo, { y: 948, o: win(t, 55.8, 60, .6, .5) })
+  set(disc, { y: 990, o: win(t, 56.2, 60, .6, .5) })
+  set(credits, { y: 1024, o: win(t, 56.4, 60, .6, .5) * .9 })
+  if (t >= 54.2) drawEcg(t - 54.2, { y0: 300, amp: 34, speed: 700, x0: 560, x1: 1360, alpha: win(t, 54.2, 60, .3, .5) * .8, flat: 0 })
+  else if (t >= 5.4) drawEcg(0, { alpha: 0 })
+}
+
+window.renderFrame = (t) => { render(t); return true }
+window.ready = true
+render(0)
+</script>
+</body>
+</html>

@@ -7,3 +7,5 @@ frontend/dist/
 .DS_Store
 .claude/
 incoming/
+video/*.mp4
+video/assets/score.wav

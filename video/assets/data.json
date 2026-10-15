@@ -1,0 +1,474 @@
+{
+ "preset": {
+  "name": "Sample C",
+  "row": 5,
+  "truth": {
+   "description": "Three-vessel disease",
+   "CAD": 1,
+   "LAD": 1,
+   "LCX": 1,
+   "RCA": 1
+  }
+ },
+ "cad": {
+  "p": 0.7847,
+  "band": [
+   0.7154,
+   0.8226
+  ],
+  "esc": 0.8681,
+  "shap": [
+   {
+    "feature": "Typical Chest Pain",
+    "label": "Typical chest pain",
+    "value": 1,
+    "display_value": "Yes",
+    "unit": "",
+    "contribution": 0.709
+   },
+   {
+    "feature": "Age",
+    "label": "Age",
+    "value": 50,
+    "display_value": "50 years",
+    "unit": "years",
+    "contribution": -0.4952
+   },
+   {
+    "feature": "HTN",
+    "label": "Hypertension",
+    "value": 0,
+    "display_value": "No",
+    "unit": "",
+    "contribution": -0.444
+   },
+   {
+    "feature": "Function Class",
+    "label": "Functional class",
+    "value": 3,
+    "display_value": "3",
+    "unit": "class",
+    "contribution": 0.3494
+   },
+   {
+    "feature": "Dyspnea",
+    "label": "Dyspnoea",
+    "value": 0,
+    "display_value": "No",
+    "unit": "",
+    "contribution": 0.2887
+   },
+   {
+    "feature": "Region RWMA",
+    "label": "Regional wall-motion abnormality",
+    "value": 0,
+    "display_value": "0",
+    "unit": "regions",
+    "contribution": -0.2795
+   },
+   {
+    "feature": "DM",
+    "label": "Diabetes mellitus",
+    "value": 0,
+    "display_value": "No",
+    "unit": "",
+    "contribution": -0.2786
+   },
+   {
+    "feature": "Tinversion",
+    "label": "T-wave inversion",
+    "value": 0,
+    "display_value": "No",
+    "unit": "",
+    "contribution": -0.2768
+   }
+  ]
+ },
+ "vessels": {
+  "LAD": {
+   "p": 0.8663,
+   "evidence": "limited",
+   "auc": 0.638,
+   "color": "#cd4c2c",
+   "shap": [
+    {
+     "feature": "Typical Chest Pain",
+     "label": "Typical chest pain",
+     "value": 1,
+     "display_value": "Yes",
+     "unit": "",
+     "contribution": 0.1016
+    },
+    {
+     "feature": "Atypical",
+     "label": "Atypical chest pain",
+     "value": 0,
+     "display_value": "No",
+     "unit": "",
+     "contribution": 0.054
+    },
+    {
+     "feature": "Age",
+     "label": "Age",
+     "value": 50,
+     "display_value": "50 years",
+     "unit": "years",
+     "contribution": -0.0305
+    },
+    {
+     "feature": "Region RWMA",
+     "label": "Regional wall-motion abnormality",
+     "value": 0,
+     "display_value": "0",
+     "unit": "regions",
+     "contribution": -0.0274
+    },
+    {
+     "feature": "Neut",
+     "label": "Neutrophils",
+     "value": 66,
+     "display_value": "66 %",
+     "unit": "%",
+     "contribution": 0.0272
+    },
+    {
+     "feature": "TG",
+     "label": "Triglycerides",
+     "value": 139,
+     "display_value": "139 mg/dL",
+     "unit": "mg/dL",
+     "contribution": 0.0251
+    },
+    {
+     "feature": "Lymph",
+     "label": "Lymphocytes",
+     "value": 26,
+     "display_value": "26 %",
+     "unit": "%",
+     "contribution": 0.0205
+    },
+    {
+     "feature": "BMI",
+     "label": "Body-mass index",
+     "value": 24.489795918367346,
+     "display_value": "24.49 kg/m\u00b2",
+     "unit": "kg/m\u00b2",
+     "contribution": 0.0198
+    }
+   ]
+  },
+  "LCX": {
+   "p": 0.6719,
+   "evidence": "weak",
+   "auc": 0.57,
+   "color": "#d3692b",
+   "shap": [
+    {
+     "feature": "Typical Chest Pain",
+     "label": "Typical chest pain",
+     "value": 1,
+     "display_value": "Yes",
+     "unit": "",
+     "contribution": 0.0632
+    },
+    {
+     "feature": "HB",
+     "label": "Haemoglobin",
+     "value": 15.6,
+     "display_value": "15.6 g/dL",
+     "unit": "g/dL",
+     "contribution": 0.0502
+    },
+    {
+     "feature": "Age",
+     "label": "Age",
+     "value": 50,
+     "display_value": "50 years",
+     "unit": "years",
+     "contribution": -0.0411
+    },
+    {
+     "feature": "Function Class",
+     "label": "Functional class",
+     "value": 3,
+     "display_value": "3",
+     "unit": "class",
+     "contribution": 0.0379
+    },
+    {
+     "feature": "Length",
+     "label": "Height",
+     "value": 175,
+     "display_value": "175 cm",
+     "unit": "cm",
+     "contribution": 0.0331
+    },
+    {
+     "feature": "LDL",
+     "label": "LDL cholesterol",
+     "value": 119,
+     "display_value": "119 mg/dL",
+     "unit": "mg/dL",
+     "contribution": 0.0315
+    },
+    {
+     "feature": "TG",
+     "label": "Triglycerides",
+     "value": 139,
+     "display_value": "139 mg/dL",
+     "unit": "mg/dL",
+     "contribution": 0.0306
+    },
+    {
+     "feature": "PLT",
+     "label": "Platelets",
+     "value": 194,
+     "display_value": "194 \u00d710\u00b3/\u00b5L",
+     "unit": "\u00d710\u00b3/\u00b5L",
+     "contribution": 0.0245
+    }
+   ]
+  },
+  "RCA": {
+   "p": 0.541,
+   "evidence": "weak",
+   "auc": 0.597,
+   "color": "#d87c2b",
+   "shap": [
+    {
+     "feature": "Function Class",
+     "label": "Functional class",
+     "value": 3,
+     "display_value": "3",
+     "unit": "class",
+     "contribution": 0.6548
+    },
+    {
+     "feature": "Age",
+     "label": "Age",
+     "value": 50,
+     "display_value": "50 years",
+     "unit": "years",
+     "contribution": -0.4034
+    },
+    {
+     "feature": "DM",
+     "label": "Diabetes mellitus",
+     "value": 0,
+     "display_value": "No",
+     "unit": "",
+     "contribution": -0.3521
+    },
+    {
+     "feature": "Sex",
+     "label": "Sex",
+     "value": 1,
+     "display_value": "Male",
+     "unit": "",
+     "contribution": 0.3231
+    },
+    {
+     "feature": "Dyspnea",
+     "label": "Dyspnoea",
+     "value": 0,
+     "display_value": "No",
+     "unit": "",
+     "contribution": 0.2756
+    },
+    {
+     "feature": "Typical Chest Pain",
+     "label": "Typical chest pain",
+     "value": 1,
+     "display_value": "Yes",
+     "unit": "",
+     "contribution": 0.2557
+    },
+    {
+     "feature": "Current Smoker",
+     "label": "Current smoker",
+     "value": 1,
+     "display_value": "Yes",
+     "unit": "",
+     "contribution": 0.2427
+    },
+    {
+     "feature": "HTN",
+     "label": "Hypertension",
+     "value": 0,
+     "display_value": "No",
+     "unit": "",
+     "contribution": -0.1896
+    }
+   ]
+  }
+ },
+ "metrics": {
+  "n": 303,
+  "cad_n": 216,
+  "cad_auc": 0.927,
+  "cm": {
+   "CAD": {
+    "accuracy": 0.861,
+    "precision": 0.895,
+    "recall": 0.912,
+    "f1": 0.904,
+    "roc_auc": 0.927
+   },
+   "LAD": {
+    "accuracy": 0.752,
+    "precision": 0.774,
+    "recall": 0.814,
+    "f1": 0.793,
+    "roc_auc": 0.82
+   },
+   "LCX": {
+    "accuracy": 0.634,
+    "precision": 0.545,
+    "recall": 0.403,
+    "f1": 0.464,
+    "roc_auc": 0.674
+   },
+   "RCA": {
+    "accuracy": 0.686,
+    "precision": 0.602,
+    "recall": 0.491,
+    "f1": 0.541,
+    "roc_auc": 0.731
+   }
+  },
+  "ablation": [
+   0.91,
+   0.927,
+   0.939,
+   0.927
+  ],
+  "esc_gain": {
+   "diff": 0.029,
+   "ci95": [
+    0.013,
+    0.048
+   ],
+   "ci_excludes_0": true
+  },
+  "vessel_auc": {
+   "LAD": {
+    "ded": 0.855,
+    "cadp": 0.849,
+    "within": 0.638
+   },
+   "LCX": {
+    "ded": 0.748,
+    "cadp": 0.722,
+    "within": 0.57
+   },
+   "RCA": {
+    "ded": 0.719,
+    "cadp": 0.714,
+    "within": 0.597
+   }
+  }
+ },
+ "inputs": [
+  "Age",
+  "Sex",
+  "Weight",
+  "Height",
+  "Body-mass index",
+  "Diabetes mellitus",
+  "Hypertension",
+  "Current smoker",
+  "Ex-smoker",
+  "Family history of CAD",
+  "Obesity",
+  "Chronic renal failure",
+  "Prior stroke (CVA)",
+  "Airway disease",
+  "Thyroid disease",
+  "Congestive heart failure",
+  "Dyslipidaemia",
+  "Typical chest pain",
+  "Atypical chest pain",
+  "Non-anginal chest pain",
+  "Dyspnoea",
+  "Functional class",
+  "Low-threshold angina",
+  "Blood pressure",
+  "Pulse rate",
+  "Oedema",
+  "Weak peripheral pulse",
+  "Lung rales",
+  "Systolic murmur",
+  "Diastolic murmur",
+  "Q wave",
+  "ST elevation",
+  "ST depression",
+  "T-wave inversion",
+  "Left ventricular hypertrophy",
+  "Poor R-wave progression",
+  "Bundle branch block",
+  "Fasting blood sugar",
+  "Creatinine",
+  "Triglycerides",
+  "LDL cholesterol",
+  "HDL cholesterol",
+  "Blood urea nitrogen",
+  "ESR",
+  "Haemoglobin",
+  "Potassium",
+  "Sodium",
+  "White cell count",
+  "Lymphocytes",
+  "Neutrophils",
+  "Platelets",
+  "Ejection fraction (TTE)",
+  "Regional wall-motion abnormality",
+  "Valvular heart disease"
+ ],
+ "aha": {
+  "LAD": [
+   1,
+   2,
+   7,
+   8,
+   13,
+   14,
+   17
+  ],
+  "RCA": [
+   3,
+   4,
+   9,
+   10,
+   15
+  ],
+  "LCX": [
+   5,
+   6,
+   11,
+   12,
+   16
+  ]
+ },
+ "colors": [
+  {
+   "p": 0,
+   "color": "#2e9e5b"
+  },
+  {
+   "p": 0.25,
+   "color": "#849043"
+  },
+  {
+   "p": 0.5,
+   "color": "#d9822b"
+  },
+  {
+   "p": 0.75,
+   "color": "#d05d2c"
+  },
+  {
+   "p": 1,
+   "color": "#c8382c"
+  }
+ ]
+}
