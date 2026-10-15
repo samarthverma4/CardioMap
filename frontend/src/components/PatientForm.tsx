@@ -100,7 +100,7 @@ export default function PatientForm({ schema, values, onChange, presets, activeP
       {schema.groups.map((g) => {
         const items = schema.inputs.filter((i) => i.group === g)
         return (
-          <details key={g} open={g === 'demographic' || g === 'symptoms' || g === 'ecg' || g === 'echo'}>
+          <details key={g}>
             <summary>
               <span>{GROUP_LABELS[g] ?? g}</span>
               <span className="count">{items.length}</span>
