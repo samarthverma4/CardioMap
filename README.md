@@ -77,6 +77,21 @@ backend/app/main.py (FastAPI)          frontend/ (Vite, React, TypeScript, react
 
 From `ml/metrics.json` (`reproduce.py`: repeated stratified 5×10 CV, seed 2026, 2,000 patient-level bootstrap resamples; 303 patients, 216 with CAD). AUC with 95% CI.
 
+**Classification metrics** (threshold 0.5, fixed in advance; out-of-fold predictions from the same cross-validation, all inputs; 95% bootstrap CIs; `ml/classification_metrics.py`)
+
+| Target | Model | Accuracy | Precision | Recall | F1 | ROC-AUC |
+|---|---|---|---|---|---|---|
+| CAD | LR | 0.86 (0.82–0.90) | 0.90 (0.85–0.93) | 0.91 (0.88–0.95) | 0.90 (0.88–0.93) | 0.93 (0.90–0.96) |
+| LAD | LR | 0.75 (0.70–0.80) | 0.77 (0.71–0.83) | 0.81 (0.75–0.87) | 0.79 (0.74–0.84) | 0.82 (0.77–0.87) |
+| LCX | LR | 0.63 (0.58–0.69) | 0.55 (0.44–0.65) | 0.40 (0.32–0.49) | 0.46 (0.37–0.54) | 0.67 (0.61–0.73) |
+| RCA | LR | 0.69 (0.64–0.74) | 0.60 (0.51–0.70) | 0.49 (0.40–0.58) | 0.54 (0.46–0.62) | 0.73 (0.67–0.78) |
+| CAD | RF | 0.87 (0.83–0.90) | 0.87 (0.83–0.92) | 0.95 (0.92–0.98) | 0.91 (0.88–0.94) | 0.93 (0.89–0.95) |
+| LAD | RF | 0.79 (0.74–0.83) | 0.78 (0.72–0.83) | 0.90 (0.85–0.94) | 0.83 (0.79–0.87) | 0.85 (0.81–0.90) |
+| LCX | RF | 0.67 (0.62–0.72) | 0.66 (0.54–0.77) | 0.34 (0.26–0.43) | 0.45 (0.36–0.54) | 0.75 (0.69–0.80) |
+| RCA | RF | 0.67 (0.62–0.72) | 0.63 (0.51–0.76) | 0.32 (0.23–0.40) | 0.42 (0.33–0.51) | 0.72 (0.66–0.78) |
+
+Precision and accuracy are inflated by the high prevalence of a referred population (CAD 71%). Vessel recall is low at 0.5 because vessel scores are rarely confident.
+
 **Vessel scores vs CAD probability**
 
 | Vessel | Model | Dedicated model | CAD probability as score | Dedicated minus CAD prob. | Within CAD (dedicated) | Evidence |

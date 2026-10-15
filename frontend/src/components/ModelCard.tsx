@@ -139,6 +139,7 @@ function AblationChart({ m }: { m: Metrics }) {
 
 export default function ModelCard({ m, schema }: { m: Metrics; schema: Schema }) {
   const [fam, setFam] = useState<Family>('LR')
+  const [cmFam, setCmFam] = useState<Family>('LR')
   const d = m.derived
   const escDiff = (f: Family) => m[f].ablation_diffs.CAD['esc+ecg+echo minus esc_features']
   const within = VESSELS.flatMap((v) => (['LR', 'RF'] as Family[]).map((f) => m[f].vessels[v].within_CAD.dedicated_model_scores.auc))
@@ -198,6 +199,43 @@ export default function ModelCard({ m, schema }: { m: Metrics; schema: Schema })
           {' '}{sgn(escDiff('RF').diff)} ({escDiff('RF').ci95[0].toFixed(3)} to {escDiff('RF').ci95[1].toFixed(3)}).
         </p>
         <AblationChart m={m} />
+      </section>
+
+      <section>
+        <h3>Classification metrics (threshold {d.classification_metrics.threshold})</h3>
+        <p className="lede">
+          Out-of-fold predictions from the same cross-validation, with all inputs. Values with 95% bootstrap CIs. Precision
+          and accuracy depend on prevalence, which is high in this referred population.
+        </p>
+        <div className="seg seg-inline" role="group" aria-label="Model family for classification metrics">
+          {(['LR', 'RF'] as Family[]).map((f) => (
+            <button key={f} type="button" aria-pressed={cmFam === f} onClick={() => setCmFam(f)}>{FAMILY_NAME[f]}</button>
+          ))}
+        </div>
+        <div className="table-scroll"><table className="nowrap">
+          <thead><tr><th>Target</th><th>Accuracy</th><th>Precision</th><th>Recall</th><th>Specificity</th><th>F1</th><th>ROC-AUC</th><th>TP / FP / FN / TN</th></tr></thead>
+          <tbody>
+            {['CAD', ...VESSELS].map((t) => {
+              const r = d.classification_metrics[cmFam][t]
+              const cell = (k: 'accuracy' | 'precision' | 'recall' | 'specificity' | 'f1' | 'roc_auc') => (
+                <td key={k} title={`95% CI ${r[k].ci95[0].toFixed(2)}–${r[k].ci95[1].toFixed(2)}`}>
+                  {r[k].value.toFixed(2)} <span className="ci">({r[k].ci95[0].toFixed(2)}–{r[k].ci95[1].toFixed(2)})</span>
+                </td>
+              )
+              return (
+                <tr key={t}>
+                  <th scope="row">{t}</th>
+                  {(['accuracy', 'precision', 'recall', 'specificity', 'f1', 'roc_auc'] as const).map(cell)}
+                  <td>{r.confusion.tp} / {r.confusion.fp} / {r.confusion.fn} / {r.confusion.tn}</td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table></div>
+        <p className="fine">
+          Recall = sensitivity. The threshold was fixed before evaluation, not tuned on these results. Vessel recall is low
+          at 0.5 because vessel scores are rarely confident, consistent with the weak within-CAD discrimination above.
+        </p>
       </section>
 
       <section>

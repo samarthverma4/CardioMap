@@ -15,7 +15,7 @@ LOCAL = [
 ]
 CSS = """
 @page { size: A4; margin: 16mm 16mm 18mm; }
-body { font: 10pt/1.42 'Public Sans', 'Helvetica Neue', Arial, sans-serif; color: #15202a; }
+body { font: 9.6pt/1.38 'Public Sans', 'Helvetica Neue', Arial, sans-serif; color: #15202a; }
 h1 { font-size: 19pt; margin: 0 0 2pt; letter-spacing: -0.02em; }
 h2 { font-size: 12.5pt; margin: 14pt 0 4pt; border-bottom: 1px solid #ccd5db; padding-bottom: 2pt; }
 h3 { font-size: 10.5pt; margin: 10pt 0 3pt; }
@@ -28,7 +28,7 @@ th, td { border-bottom: 1px solid #ccd5db; padding: 3pt 5pt; text-align: left; }
 th { color: #4a5864; }
 code { font: 8.6pt 'IBM Plex Mono', Menlo, monospace; }
 figure, img { max-width: 100%; break-inside: avoid; }
-img { display: block; margin: 6pt auto 2pt; max-height: 88mm; }
+img { display: block; margin: 4pt auto 2pt; max-height: 60mm; }
 .cap { font-size: 8.4pt; color: #4a5864; text-align: center; margin: 0 0 8pt; }
 """
 

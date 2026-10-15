@@ -166,6 +166,7 @@ def main() -> None:
         "evidence_rule": "mean of LR and RF within-CAD AUC of dedicated model scores; "
                          + ", ".join(f"{k} {v}" for k, v in EVIDENCE_THRESHOLDS.items()),
         "served_model_selection": selection,
+        "classification_metrics": json.loads((ROOT / "ml" / "classification_metrics.json").read_text()),
         "served_versions": bundle["versions"],
     }
     (ART / "metrics.json").write_text(json.dumps(metrics, indent=2))

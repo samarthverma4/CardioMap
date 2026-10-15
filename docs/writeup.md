@@ -77,6 +77,17 @@ No dedicated vessel model beats the CAD probability. Five of six differences hav
 
 The hierarchical model does not help. Hierarchical minus dedicated AUC differences range from −0.012 to +0.015; the only CI that excludes zero (LAD, random forest, −0.012, CI −0.022 to −0.002) again favours the simpler model. Training the conditional model on CAD patients only also does not raise within-CAD discrimination (differences −0.121 to −0.001). CardioMap therefore serves independent vessel models.
 
+**Threshold metrics.** At a fixed 0.5 threshold (out-of-fold, all inputs; CIs in the app and README):
+
+| Target | LR: acc / prec / rec / F1 / AUC | RF: acc / prec / rec / F1 / AUC |
+|---|---|---|
+| CAD | 0.86 / 0.90 / 0.91 / 0.90 / 0.93 | 0.87 / 0.87 / 0.95 / 0.91 / 0.93 |
+| LAD | 0.75 / 0.77 / 0.81 / 0.79 / 0.82 | 0.79 / 0.78 / 0.90 / 0.83 / 0.85 |
+| LCX | 0.63 / 0.55 / 0.40 / 0.46 / 0.67 | 0.67 / 0.66 / 0.34 / 0.45 / 0.75 |
+| RCA | 0.69 / 0.60 / 0.49 / 0.54 / 0.73 | 0.67 / 0.63 / 0.32 / 0.42 / 0.72 |
+
+CAD detection is strong (F1 0.90 to 0.91). Vessel F1 for LCX and RCA is below 0.55: at 0.5 the models rarely call a vessel stenotic with confidence, the same weakness the within-CAD AUCs show.
+
 ### 4.2 Modalities add to CAD detection
 
 | Feature set | Logistic regression | Random forest |

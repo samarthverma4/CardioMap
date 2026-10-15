@@ -143,6 +143,7 @@ export interface Metrics {
     evidence_rule: string
     served_model_selection: Record<string, { chosen: string; inner_cv_auc: Record<string, number> }>
     served_versions: Record<string, string>
+    classification_metrics: ClassificationMetrics
   }
 }
 
@@ -150,4 +151,15 @@ export interface Meta {
   disclaimer: string
   population_note: string
   color_scale: { p: number; color: string }[]
+}
+
+export interface MetricCI { value: number; ci95: [number, number] }
+export interface TargetClassMetrics {
+  accuracy: MetricCI; precision: MetricCI; recall: MetricCI; specificity: MetricCI; f1: MetricCI; roc_auc: MetricCI
+  confusion: { tp: number; fp: number; fn: number; tn: number }
+  prevalence: number
+}
+export interface ClassificationMetrics {
+  threshold: number; bootstrap: number; source: string
+  LR: Record<string, TargetClassMetrics>; RF: Record<string, TargetClassMetrics>
 }
