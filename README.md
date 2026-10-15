@@ -2,6 +2,8 @@
 
 Track A entry, Multimodal AI Hackathon 2026, IIT Mandi.
 
+**Team:** Samarth Verma, Yashi Rajoriya, Anshuman Dubey
+
 > **Decision support / education only.** Not a diagnosis and not a substitute for angiography or CT angiography. The 3D heart is a generic model, not this patient's anatomy. Every probability is **among patients referred for angiography**, the population of the dataset.
 
 CardioMap takes bedside data (history, symptoms, exam, ECG, labs, echo), estimates the probability of coronary artery disease (CAD) and paints a per-vessel score onto a generic 3D heart. The vessel scores sit beside the overall CAD probability, each with an evidence badge, because the main finding of the analysis is that **vessel predictions from bedside data mostly re-encode overall CAD risk**. The app is built so that nobody reads a red LAD as "the lesion is in the LAD".
@@ -142,7 +144,7 @@ Tools: **Claude Code** (Anthropic, Claude Opus 5.5) and **Claude** (Anthropic).
 
 - `ml/reproduce.py`, `ml/metrics.json`, `ml/oof_predictions.csv` and the analysis design were produced with Claude.
 - With Claude Code: `ml/features.py`, `ml/train.py`, the artifacts, the FastAPI backend, the React/three.js frontend (including the charts and the BodyParts3D heart pipeline), all tests, the Dockerfile, the screenshot script and this README.
-- The team chose the research question, reviewed the outputs and is responsible for every claim in the submission.
+- The team (Samarth Verma, Yashi Rajoriya, Anshuman Dubey) chose the research question, reviewed the outputs and is responsible for every claim in the submission.
 
 ## Repository
 

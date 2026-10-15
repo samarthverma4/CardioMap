@@ -1,6 +1,6 @@
 # CardioMap: an honest map of coronary risk from bedside data
 
-*Track A, Multimodal AI Hackathon 2026, IIT Mandi.*
+*Track A, Multimodal AI Hackathon 2026, IIT Mandi.* **Team:** Samarth Verma, Yashi Rajoriya, Anshuman Dubey.
 
 > Decision support / education only. Not a diagnosis and not a substitute for angiography or CT angiography. The 3D heart is a generic model, not this patient's anatomy. Every probability in this document and in the app is among patients referred for angiography.
 
