@@ -8,9 +8,12 @@ from __future__ import annotations
 import hashlib
 import json
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import numpy as np
-import pandas as pd
+
+if TYPE_CHECKING:  # pandas is only needed for training; the served API runs without it
+    import pandas as pd
 
 ROOT = Path(__file__).resolve().parents[1]
 DATA_FILE = ROOT / "data" / "extention of Z-Alizadeh sani dataset.xlsx"
@@ -98,6 +101,7 @@ def file_sha256(path: Path = DATA_FILE) -> str:
 
 
 def load_raw(path: Path = DATA_FILE) -> pd.DataFrame:
+    import pandas as pd
     assert file_sha256(path) == DATA_SHA256, "dataset hash mismatch"
     return pd.read_excel(path)
 
@@ -111,6 +115,7 @@ def targets(df: pd.DataFrame) -> dict[str, np.ndarray]:
 
 def encode(df: pd.DataFrame) -> pd.DataFrame:
     """Encoding copied from reproduce.py. Returns the model matrix (float) in reproduce.py's column order."""
+    import pandas as pd
     X = df.drop(columns=[c for c in LABELS + DROPPED if c in df.columns]).copy()
     X["Sex"] = X.Sex.eq("Male").astype(int)
     X["VHD"] = X.VHD.map(VHD_LEVELS)
@@ -139,6 +144,7 @@ def model_columns() -> list[str]:
 
 def clinical_frame(df: pd.DataFrame) -> pd.DataFrame:
     """Raw dataset rows -> clinical input dicts in the schema's encoding (binary 0/1, VHD 0-3, BBB string)."""
+    import pandas as pd
     out = pd.DataFrame(index=df.index)
     for name, (_, _, typ, _) in INPUTS.items():
         s = df[name]
@@ -155,18 +161,17 @@ def clinical_frame(df: pd.DataFrame) -> pd.DataFrame:
     return out
 
 
-def encode_rows(rows: list[dict], columns: list[str]) -> pd.DataFrame:
-    """Clinical input dicts (schema encoding, all inputs present) -> model matrix with `columns`."""
-    recs = []
-    for r in rows:
+def encode_rows(rows: list[dict], columns: list[str]) -> np.ndarray:
+    """Clinical input dicts (schema encoding, all inputs present) -> float model matrix with `columns`."""
+    assert_no_labels(columns)
+    out = np.empty((len(rows), len(columns)))
+    for i, r in enumerate(rows):
         assert_no_labels(r.keys())
         rec = {k: float(v) for k, v in r.items() if k != "BBB"}
         rec["BBB_N"] = float(r["BBB"] == "N")
         rec["BBB_RBBB"] = float(r["BBB"] == "RBBB")
-        recs.append(rec)
-    X = pd.DataFrame(recs)[columns].astype(float)
-    assert_no_labels(X.columns)
-    return X
+        out[i] = [rec[c] for c in columns]
+    return out
 
 
 def build_schema(df: pd.DataFrame) -> dict:

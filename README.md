@@ -25,7 +25,7 @@ Open http://localhost:8000. The image builds the frontend, retrains the served m
 Requirements: Python 3.11+ (tested on 3.12), Node 20+.
 
 ```bash
-python3.12 -m venv .venv && .venv/bin/pip install -r requirements.txt
+python3.12 -m venv .venv && .venv/bin/pip install -r requirements-train.txt   # serving alone needs only requirements.txt
 .venv/bin/python ml/train.py                 # optional: rebuilds artifacts/ (trained models are committed)
 (cd frontend && npm ci && npm run build)
 .venv/bin/uvicorn backend.app.main:app --port 8000

@@ -4,6 +4,7 @@ import sys
 from pathlib import Path
 
 import joblib
+import numpy as np
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -55,7 +56,7 @@ def test_encoding_matches_reproduce():
     X = X.astype(float)
     pd.testing.assert_frame_equal(F.encode(df), X)
     rows = F.clinical_frame(df).to_dict("records")
-    pd.testing.assert_frame_equal(F.encode_rows(rows, list(X.columns)), X)
+    np.testing.assert_array_equal(F.encode_rows(rows, list(X.columns)), X.to_numpy())
 
 
 @pytest.mark.parametrize("label", sorted(LABELS))

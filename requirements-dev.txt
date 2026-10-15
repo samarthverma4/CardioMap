@@ -1,4 +1,4 @@
--r requirements.txt
+-r requirements-train.txt
 playwright==1.64.0
 Markdown==3.11.1
 # tools/build_heart.py

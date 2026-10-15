@@ -3,12 +3,12 @@ from __future__ import annotations
 
 import json
 import sys
+import warnings
 from pathlib import Path
 from typing import Any
 
 import joblib
 import numpy as np
-import shap
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -16,7 +16,12 @@ from pydantic import BaseModel
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "ml"))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import explain  # noqa: E402
 import features as F  # noqa: E402
+
+# Models were fitted on named DataFrames; the API passes plain arrays in the same column order.
+warnings.filterwarnings("ignore", message="X does not have valid feature names")
 
 ART = ROOT / "artifacts"
 DIST = ROOT / "frontend" / "dist"
@@ -32,6 +37,7 @@ PRESETS = json.loads((ART / "presets.json").read_text())
 ANATOMY = json.loads((ART / "anatomy_map.json").read_text())
 SPEC = {i["name"]: i for i in SCHEMA["inputs"]}
 COLUMNS = BUNDLE["columns"]
+COL_IDX = {c: i for i, c in enumerate(COLUMNS)}
 EVIDENCE = METRICS["derived"]["evidence"]
 
 for _t, _m in BUNDLE["targets"].items():
@@ -52,21 +58,17 @@ def prob_to_color(p: float) -> str:
     return "#%02x%02x%02x" % _STOPS[-1][1]
 
 
-# --- SHAP on the uncalibrated base model ----------------------------------------------------------
+# --- SHAP on the uncalibrated base model (exact, numpy; see explain.py) ------------------------------
+def _cols(X: np.ndarray, features: list[str]) -> np.ndarray:
+    return X[:, [COL_IDX[f] for f in features]]
+
+
 def _make_explainer(m: dict):
     base = m["shap_base"]
-    bg = BUNDLE["background"][m["features"]]
     if m["family"] == "LR":
         scaler, lr = base.steps[0][1], base.steps[-1][1]
-        masker = shap.maskers.Independent(scaler.transform(bg), max_samples=len(bg))
-        exp = shap.LinearExplainer(lr, masker)
-        return lambda X: np.asarray(exp.shap_values(scaler.transform(X)))[0], "log-odds"
-    exp = shap.TreeExplainer(base)
-
-    def run(X):
-        sv = np.asarray(exp.shap_values(X.values))
-        return sv[0, :, 1] if sv.ndim == 3 else sv[0]
-    return run, "probability"
+        return explain.linear_shap(scaler, lr, _cols(BUNDLE["background"], m["features"])), "log-odds"
+    return explain.forest_shap(base), "probability"
 
 
 EXPLAINERS = {t: _make_explainer(m) for t, m in BUNDLE["targets"].items()}
@@ -84,7 +86,7 @@ def _fmt_value(name: str, v: Any) -> str:
 
 def _shap(target: str, X, inputs: dict) -> tuple[list[dict], str]:
     run, scale = EXPLAINERS[target]
-    sv = run(X)
+    sv = run(_cols(X, BUNDLE["targets"][target]["features"])[0])
     contrib: dict[str, float] = {}
     for col, val in zip(BUNDLE["targets"][target]["features"], sv):
         name = "BBB" if col.startswith("BBB_") else col
@@ -110,7 +112,7 @@ def _sentence(target: str, shap_items: list[dict]) -> str:
 
 
 def _predict_target(m: dict, X) -> tuple[float, list[float]]:
-    Xm = X[m["features"]]
+    Xm = _cols(X, m["features"])
     p = float(m["model"].predict_proba(Xm)[0, 1])
     folds = [float(fm.predict_proba(Xm)[0, 1]) for fm in m["fold_models"]]
     return p, [round(min(folds), 4), round(max(folds), 4)]
@@ -119,7 +121,6 @@ def _predict_target(m: dict, X) -> tuple[float, list[float]]:
 def predict(features: dict) -> dict:
     inputs = F.complete_inputs(features, SCHEMA)
     X = F.encode_rows([inputs], COLUMNS)
-    F.assert_no_labels(X.columns)
     out: dict[str, Any] = {}
 
     cad_m = BUNDLE["targets"]["CAD"]

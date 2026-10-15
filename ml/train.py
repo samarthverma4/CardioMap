@@ -141,7 +141,7 @@ def main() -> None:
         "targets": models,
         "esc_baseline": {"family": "LR", "features": list(F.ESC), "model": esc, "fold_models": esc_folds},
         "columns": cols,
-        "background": X,  # for shap.LinearExplainer
+        "background": X.to_numpy(),  # columns = "columns"; for the linear SHAP baseline
         "versions": {"python": sys.version.split()[0], "sklearn": sklearn.__version__},
         "dataset_sha256": F.DATA_SHA256,
     }
