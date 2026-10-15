@@ -10,7 +10,7 @@ import { pct } from '../api'
 /* Heart: textured surface "Realistic Human Heart" by neshallads (CC BY 4.0) with the BodyParts3D coronary
    arteries (DBCLS, CC BY 4.0) fitted onto it; built by tools/build_heart.py + tools/fit_surface.py.
    The surface is split into each artery's territory (myo-LAD, myo-LCX, myo-RCA) plus myo-base. */
-const MODEL_URL = '/heart.glb'
+const MODEL_URL = `/heart.glb?v=${__HEART_VERSION__}`
 const OPACITY: Record<Evidence, number> = { moderate: 1, limited: 0.7, weak: 0.45 }
 
 type Nodes = Record<string, THREE.Mesh>
@@ -307,6 +307,8 @@ interface SceneProps {
 
 function HeartModel({ prediction, selected, onSelect, tint, onHover }: SceneProps) {
   const { nodes } = useGLTF(MODEL_URL, false, false) as unknown as { nodes: Nodes }
+  const missing = ['myo', 'LM', ...VESSELS].filter((n) => !nodes[n])
+  if (missing.length) throw new Error(`heart.glb is missing ${missing.join(', ')} (rebuild with tools/fit_surface.py)`)
   const state = prediction?.scene_state
   const geos = useMemo(
     () => Object.fromEntries(VESSELS.map((v) =>

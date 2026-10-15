@@ -1,4 +1,5 @@
-import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
+import { Component, lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
+import type { ReactNode } from 'react'
 import { api } from './api'
 import Bullseye from './components/Bullseye'
 import ModelCard from './components/ModelCard'
@@ -7,6 +8,23 @@ import Results, { ShapChart } from './components/Results'
 import type { Anatomy, Meta, Metrics, Prediction, Preset, Presets, Schema, Vessel } from './types'
 
 const Heart = lazy(() => import('./components/Heart'))
+
+/* If the 3D view fails (WebGL unavailable, model error), only that panel shows a message; the form, results
+   and model card keep working. */
+class SceneBoundary extends Component<{ children: ReactNode }, { error: string | null }> {
+  state = { error: null as string | null }
+  static getDerivedStateFromError(e: Error) { return { error: e.message } }
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="scene-loading" role="alert">
+          The 3D view could not load ({this.state.error}). Reload the page; everything else still works.
+        </div>
+      )
+    }
+    return this.props.children
+  }
+}
 
 export const DISCLAIMER =
   'Decision support / education only. Not a diagnosis and not a substitute for angiography or CT angiography. The 3D heart is a generic model, not this patient’s anatomy.'
@@ -110,9 +128,11 @@ export default function App() {
             />
           </aside>
           <section className="col-scene" aria-label="3D heart">
+            <SceneBoundary>
             <Suspense fallback={<div className="scene-loading">Loading 3D view…</div>}>
               <Heart prediction={pred} selected={selected} onSelect={select} showTerritory={territory} />
             </Suspense>
+            </SceneBoundary>
             <div className="scene-top">
               <span className="scene-hint">Drag to rotate · scroll to zoom · click an artery</span>
               <label className="toggle">
