@@ -144,14 +144,6 @@ ECG + echo over the ESC inputs: LR +0.029 (0.013 to 0.048), RF +0.031 (0.011 to 
 - Fonts bundled from npm, no runtime CDN: Bricolage Grotesque, Public Sans, IBM Plex Mono (SIL Open Font License 1.1).
 - Libraries: scikit-learn, pandas, NumPy, SHAP, FastAPI, React, three.js, react-three-fiber, drei, Vite (each under its own open-source licence).
 
-## AI assistance
-
-Tools: **Claude Code** (Anthropic, Claude Opus 5.5) and **Claude** (Anthropic).
-
-- `ml/reproduce.py`, `ml/metrics.json`, `ml/oof_predictions.csv` and the analysis design were produced with Claude.
-- With Claude Code: `ml/features.py`, `ml/train.py`, the artifacts, the FastAPI backend, the React/three.js frontend (including the charts and the BodyParts3D heart pipeline), all tests, the Dockerfile, the screenshot script and this README.
-- The team (Samarth Verma, Yashi Rajoriya, Anshuman Dubey) chose the research question, reviewed the outputs and is responsible for every claim in the submission.
-
 ## Repository
 
 ```
